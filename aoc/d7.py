@@ -2,7 +2,7 @@ import re
 import networkx as nx
 
 
-def create_bag_graph(rules: str) -> nx.DiGraph:
+def create_bag_graph(rules: str, with_counts: bool = False) -> nx.DiGraph:
     """
     How many bag colors can eventually contain at least one shiny gold bag?
     """
@@ -11,7 +11,14 @@ def create_bag_graph(rules: str) -> nx.DiGraph:
     g = nx.DiGraph()
 
     for rule in rules:
-        bags = re.findall('([^ \r\n]+) ([^ \r\n]+) bags?', rule, re.IGNORECASE)
+        if with_counts:
+            # weak regex game
+            container = re.findall('([^ \r\n]+) ([^ \r\n]+) bags?', rule)[0]
+            contained = re.findall('([^ \r\n]+)? ([^ \r\n]+) ([^ \r\n]+) bags?', rule)
+            bags = [container] + contained
+
+        else:
+            bags = re.findall('([^ \r\n]+) ([^ \r\n]+) bags?', rule)
 
         # add predecessor
         predecessor = bags[0]
@@ -20,14 +27,19 @@ def create_bag_graph(rules: str) -> nx.DiGraph:
 
         for bag in bags[1:]:
             # add successors
-            sname = ' '.join(bag)
+            sname = ' '.join(bag[1:]) if with_counts else ' '.join(bag)
             g.add_node(sname)
             g.add_edge(pname, sname)
+
+            if with_counts:
+                # register counts of subsequent bags
+                count = 1 if bag[0] == 'contain' else int(bag[0])
+                g.nodes[pname][sname] = count
 
     return g
 
 
-def get_graph_traverse(graph: nx.DiGraph) -> object:
+def get_bag_containers(graph: nx.DiGraph) -> object:
     def get_containers(bag: str) -> list:
         """
         Unique of output gives the answer
@@ -42,3 +54,21 @@ def get_graph_traverse(graph: nx.DiGraph) -> object:
         baglist += prd
         return baglist
     return get_containers
+
+
+def get_bag_counter(graph: nx.DiGraph) -> object:
+    def get_counter(bag: str) -> int:
+        """
+        How many individual bags are required
+        inside your single shiny gold bag?
+        """
+        suc = list(graph.successors(bag))
+        if len(suc) == 1 and suc[0] == 'no other':
+            return 0
+        count = 0
+        for s in suc:
+            n = get_counter(s)
+            mul = graph.nodes[bag][s]
+            count += (n * mul) + mul
+        return count
+    return get_counter
