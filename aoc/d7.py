@@ -4,7 +4,7 @@ import networkx as nx
 
 def create_bag_graph(rules: str, with_counts: bool = False) -> nx.DiGraph:
     """
-    How many bag colors can eventually contain at least one shiny gold bag?
+    Bagging rules represented as directional graph
     """
 
     # container rules as graph
@@ -42,7 +42,8 @@ def create_bag_graph(rules: str, with_counts: bool = False) -> nx.DiGraph:
 def get_bag_containers(graph: nx.DiGraph) -> object:
     def get_containers(bag: str) -> list:
         """
-        Unique of output gives the answer
+        How many bag colors can eventually
+        contain at least one shiny gold bag?
         """
         prd = list(graph.predecessors(bag))
         if len(prd) == 0:
