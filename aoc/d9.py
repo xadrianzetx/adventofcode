@@ -1,3 +1,4 @@
+import numpy as np
 from itertools import combinations
 
 
@@ -25,3 +26,30 @@ def find_xmas_entrypoint(arr: list, preamble: int = 25) -> int:
         idxb += 1
 
     return invalid
+
+
+def exploit_xmas_entrypoint(arr: np.array, ep: int) -> np.array:
+    """
+    To find the encryption weakness, add together the smallest
+    and largest number in this contiguous range;
+    """
+
+    arr = np.array(arr)
+    itemidx = np.where(arr == ep)[0][0]
+    arr = arr[:itemidx]
+
+    for kernel in range(3, len(arr) - 1):
+        conv = np.convolve(arr, np.ones(kernel, dtype='int'), 'valid')
+
+        try:
+            # found entrypoint in convolved arr
+            hit = np.where(conv == ep)[0][0]
+            break
+
+        except IndexError:
+            # no hits for this kernel size
+            continue
+
+    cont = arr[hit:hit + kernel - 1]
+
+    return min(cont) + max(cont)
