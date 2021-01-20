@@ -1,4 +1,4 @@
-def memory_game(mem: dict, init: int) -> int:
+def memory_game(mem: dict, init: int, n: int) -> int:
     """
     In this game, the players take turns saying numbers.
     They begin by taking turns reading from a list
@@ -16,7 +16,7 @@ def memory_game(mem: dict, init: int) -> int:
     ls = init
     init_nums = len(mem.keys())
 
-    for round in range(init_nums + 2, 2021):
+    for round in range(init_nums + 2, n + 1):
         if ls in mem.keys():
             diff = round - 1 - mem[ls]
             mem[ls] = round - 1
