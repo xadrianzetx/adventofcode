@@ -44,6 +44,8 @@ def boot_process(init_map: np.array, dim: int) -> int:
         space[row:row + pad, col:col + pad, depth[0], depth[1]] = init_map
 
     for _ in range(6):
+        # convolve space with kernel, applying
+        # switch function at each step
         space = generic_filter(space, switch, footprint=kenrel,
                                mode='constant', cval=0)
 
