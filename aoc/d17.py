@@ -12,7 +12,7 @@ def parse_input(data: list) -> np.array:
     return maps.astype('int')
 
 
-def switch(arr: np.array):
+def switch(arr: np.array) -> int:
     """Applies rules to a cube"""
 
     if arr[len(arr) // 2] == 1:
