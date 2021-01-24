@@ -2,8 +2,7 @@ import regex
 import numpy as np
 
 
-PATTERN_PARENTHESES = r'\((?:[^)(]+|(?R))*+\)'
-PATTERN_SUM = r'(\d+ \+ \d+)'
+PATTERN = r'\((?:[^)(]+|(?R))*+\)'
 
 
 def _evaluate(expr: list) -> str:
@@ -29,7 +28,6 @@ def op_mul(expr: str) -> str:
 def op_add(expr: str) -> str:
     """Addition operation"""
 
-    expr = expr.group(0)
     expr = expr.split(' + ')
     expr = [int(x) for x in expr]
     expr = np.sum(expr)
@@ -48,7 +46,7 @@ def evaluate_expression_lr(expr: str) -> str:
         expr = expr.group(0)
         expr = expr[1:-1]
 
-    expr = regex.sub(PATTERN_PARENTHESES, evaluate_expression_lr, expr)
+    expr = regex.sub(PATTERN, evaluate_expression_lr, expr)
     expr = expr.split()
 
     while len(expr) != 1:
@@ -71,24 +69,10 @@ def evaluate_expression_sum(expr: str) -> str:
         expr = expr.group(0)
         expr = expr[1:-1]
 
-    expr = regex.sub(PATTERN_PARENTHESES, evaluate_expression_sum, expr)
-    prev_len = len(expr)
-
-    while True:
-        # iteratively reduce additions
-        # this can be done as one sub if regex can
-        # find all addition groups at once
-        expr = regex.sub(PATTERN_SUM, op_add, expr)
-        curr_len = len(expr)
-
-        if prev_len != curr_len:
-            prev_len = curr_len
-
-        else:
-            break
-
-    # reduce multiplication
-    expr = op_mul(expr)
+    expr = regex.sub(PATTERN, evaluate_expression_sum, expr)
+    expr = expr.split(' * ')
+    expr = [op_add(e) for e in expr]
+    expr = op_mul(' * '.join(expr))
 
     return expr
 
