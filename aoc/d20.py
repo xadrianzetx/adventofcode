@@ -64,7 +64,6 @@ def check_lineup(tiles: list) -> int:
                 tile.check_lineup(cand)
 
     corners = [t.id for t in tiles if t.linedup // 2 == 2]
-    print(corners)
     return np.product(corners, dtype='int64')
 
 
