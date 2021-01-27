@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.signal import convolve2d
 
 
 class Tile:
@@ -7,26 +8,16 @@ class Tile:
         self.id = id
         self.tile = tile
         self.linedup = 0
-        self.edges = []
-
-    def create_edges(self) -> 'Tile':
-        """
-        """
-
-        edges = [
-            self.tile[0, :],
-            self.tile[-1, :],
-            self.tile[:, 0],
-            self.tile[:, -1]
+        self.edges = [
+            tile[0, :],
+            tile[-1, :],
+            tile[:, 0],
+            tile[:, -1],
+            tile[0, :][::-1],
+            tile[-1, :][::-1],
+            tile[:, 0][::-1],
+            tile[:, -1][::-1]
         ]
-
-        for edge in edges:
-            # covers all possible
-            # arrangements of edges
-            self.edges.append(edge)
-            self.edges.append(edge[::-1])
-
-        return self
 
     def check_lineup(self, tile: 'Tile') -> 'Tile':
         """Check lineup with another tile"""
@@ -40,8 +31,7 @@ class Tile:
 
 
 def read_tiles(file: str) -> list:
-    """
-    """
+    """Parses tile to Tile object"""
 
     with open(file, 'r') as f:
         tiles = []
@@ -66,14 +56,58 @@ def read_tiles(file: str) -> list:
 
 
 def check_lineup(tiles: list) -> int:
-    """
-    """
+    """Finds product of corner ids"""
 
-    tiles = [t.create_edges() for t in tiles]
     for tile in tiles:
         for cand in tiles:
             if tile.id != cand.id:
                 tile.check_lineup(cand)
 
-    corners = [t.id for t in tiles if t.linedup == 4]
+    corners = [t.id for t in tiles if t.linedup // 2 == 2]
+    print(corners)
     return np.product(corners, dtype='int64')
+
+
+def nessie_detection(tiles: list) -> int:
+    """
+    Shortcut to find number of nessies in picture
+
+    Instead of tedious image rebuild process, this
+    solution looks for head of nessie in separate tiles,
+    hoping that one head cannot be split between two tiles.
+    """
+
+    tot_heads = []
+    tot_pix = 0
+    kernel = np.array(
+        # nessies head!
+        [[0., 0., 0., 1., 0.],
+         [0., 0., 1., 1., 1.],
+         [0., 1., 0., 0., 0.]]
+    ).astype('int')
+    kernel = np.flipud(np.fliplr(kernel))
+
+    for tile in tiles:
+        tile_heads = []
+        # crop excess pixels from frame
+        t = tile.tile[1:-1, 1:-1]
+        tot_pix += np.sum(t)
+
+        for rot in range(4):
+            # convolve kernel with tile
+            # in every possible position
+            rtile = np.rot90(t, rot)
+            sidea = convolve2d(rtile, kernel, mode='valid')
+            sideb = convolve2d(np.flipud(rtile), kernel, mode='valid')
+            tile_heads.append(len(sidea[sidea == 5]))
+            tile_heads.append(len(sideb[sideb == 5]))
+
+        # assuming that if a tile has nessies
+        # head at all, correct tile position
+        # is going to have max of it
+        tot_heads.append(max(tile_heads))
+
+    nessies = sum(tot_heads)
+    roughness = tot_pix - (nessies * 15)
+
+    return roughness
