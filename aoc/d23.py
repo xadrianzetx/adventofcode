@@ -1,52 +1,57 @@
 import numpy as np
+from typing import Union
 
 
-def play_crab_cups(cups: np.array, n_iter: int) -> str:
-    """Plays crab cups"""
+def play_crab_cups(cups: list, n_iter: int,
+                   part_one: bool = True) -> Union[str, int]:
+    """
+    Plays crab cups
 
-    n_cups = len(cups)
+    My original solution was too slow for part 2
+    so switching to r/adventofcode genius sol.
+    """
+
     max_cups = max(cups)
-    min_cups = min(cups)
-    current = 0
+    src = cups[0]
+    links = {}
 
-    for i in range(n_iter):
-        offsets = np.array([1, 2, 3]) + current
-        pick_idx = (offsets) % n_cups
-        rolled = np.sum(offsets != pick_idx)
-        dest = cups[current] - 1
+    for a, b in zip(cups, cups[1:] + cups[:1]):
+        # build initial map
+        links[a] = b
+
+    for _ in range(n_iter):
+        a = links[src]
+        b = links[a]
+        c = links[b]
+
+        # link the gap after
+        # removing 3 cups
+        links[src] = links[c]
+        dest = src - 1
 
         while True:
-            if dest < min_cups:
+            if dest < 1:
                 dest = max_cups
-            if dest in cups[pick_idx]:
+            if dest in [a, b, c]:
                 dest -= 1
-            if dest in cups and dest not in cups[pick_idx]:
+            else:
                 break
 
-        picks = cups[pick_idx]
-        cups = cups[~np.in1d(cups, picks)]
-        dest_idx = np.argwhere(cups == dest)[0][0]
-        cups = np.insert(cups, dest_idx + 1, picks)
+        links[c] = links[dest]  # link end of seq
+        links[dest] = a  # link start of seq
+        src = links[src]
 
-        if dest_idx < current:
-            # need to roll back left
-            # in this case
-            # 3 - n rolled back
-            rol = 3 - rolled
-            rback = cups[:rol]
-            cups = cups[rol:]
-            cups = np.append(cups, rback)
+    if part_one:
+        k = 1
+        res = ''
+        while True:
+            val = links[k]
+            if val == 1:
+                break
+            res += str(val)
+            k = val
 
-        current += 1
-
-        if current >= n_cups:
-            current = 0
-
-    onepos = np.argwhere(cups == 1)[0][0]
-    print(cups)
-    wrap = cups[:onepos]
-    cups = cups[onepos:]
-    cups = np.append(cups, wrap)
-    res = ''.join(cups[1:].astype('str'))
+    else:
+        res = links[1] * links[links[1]]
 
     return res
