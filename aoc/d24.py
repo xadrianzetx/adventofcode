@@ -84,29 +84,29 @@ def expand_grid(tiles: dict) -> dict:
 def game_of_tiles(tiles: dict) -> int:
     """Flips tile grid according to rules"""
 
-    for i in range(100):
+    for _ in range(100):
         tmp_tiles = tiles.copy()
 
         for tilepos, tileval in tiles.items():
             # get adjacents
             adjacents = [tilepos + a for a in COMPLEX.values()]
-            blackup = []
+            blackup = 0
 
             for adj in adjacents:
                 try:
                     adj_tile = tiles[adj]
                     if adj_tile % 2 == 0:
-                        blackup.append(0)
+                        blackup += 1
 
                 except KeyError:
                     # out of bounds tile
                     # is white by default
                     pass
 
-            if tileval % 2 == 0 and (len(blackup) == 0 or len(blackup) > 2):
+            if tileval % 2 == 0 and (blackup == 0 or blackup > 2):
                 tmp_tiles[tilepos] = 1
 
-            elif tileval % 2 != 0 and len(blackup) == 2:
+            elif tileval % 2 != 0 and blackup == 2:
                 tmp_tiles[tilepos] = 0
 
             else:
