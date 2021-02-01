@@ -6,7 +6,7 @@ def encrypt(x: int, g: int) -> int:
     """
     http://pi.math.cornell.edu/~mec/2003-2004/cryptography/diffiehellman/diffiehellman.html
     """
-    return (g ** x) % 20201227
+    return pow(g, x, 20201227)
 
 
 def bsgs(g: int, h: int, p: int) -> Optional[int]:
