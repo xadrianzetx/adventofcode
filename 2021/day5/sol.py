@@ -18,7 +18,7 @@ def read_vents_coords(filename: str) -> List[Tuple[int]]:
 
 def find_vents(coords: List[Tuple[int]], part2: bool = False) -> int:
 
-    maps = defaultdict(int)
+    vents = defaultdict(int)
     for x1, x2, y1, y2 in coords:
         dx = 1 if x2 > x1 else -1
         dy = 1 if y2 > y1 else -1
@@ -27,15 +27,15 @@ def find_vents(coords: List[Tuple[int]], part2: bool = False) -> int:
             for x in range(abs(x1 - x2) + 1):
                 for y in range(abs(y1 - y2) + 1):
                     c = (x1 + dx * x, y1 + dy * y)
-                    maps[c] += 1
+                    vents[c] += 1
 
         else:
             if part2:
                 for step in range(abs(x1 - x2) + 1):
                     c = (x1 + dx * step, y1 + dy * step)
-                    maps[c] += 1
+                    vents[c] += 1
 
-    counts = [1 for val in maps.values() if val > 1]
+    counts = [1 for val in vents.values() if val > 1]
     return sum(counts)
 
 
