@@ -1,29 +1,48 @@
-import numpy as np
+from functools import lru_cache
+from typing import List
 
 
-def read_population(filename: str) -> np.array:
+def read_population(filename: str) -> List[int]:
 
     with open(filename) as file:
-        data = [line.split(",") for line in file.readlines()]
+        data = file.read().rstrip().split(",")
 
-    return np.array(data, dtype=np.int8).flatten()
+    return [int(d) for d in data]
 
 
-def simulate_lanternfish(population: np.array, n_days: int = 80) -> np.array:
+def simulate_lanternfish(start_days: List[int], n_days: int = 80) -> int:
 
-    for _ in range(n_days):
-        population -= 1
-        reproducing = population[population < 0]
-        if len(reproducing) > 0:
-            population[population < 0] = 6
-            spawn = np.full((len(reproducing),), 8)
-            population = np.append(population, spawn)
+    total_population = 0
+    for start_day in start_days:
+        total_population += spawn(start_day + 1, n_days, fforward=False)
 
-    return len(population)
+    return total_population
+
+
+@lru_cache()
+def spawn(day: int, total_days: int, fforward: bool = True):
+
+    if fforward:
+        # Initial incubation period.
+        day += 9
+
+    days_left = total_days - day
+    if days_left < 0:
+        return 1
+
+    children = 0
+    for offset in range(days_left + 1):
+        if offset % 7 == 0:
+            children += spawn(day + offset, total_days)
+
+    return children + 1
 
 
 if __name__ == "__main__":
-    pop = read_population("d6.txt")
+    start_days = read_population("d6.txt")
 
-    part1 = simulate_lanternfish(pop)
+    part1 = simulate_lanternfish(start_days)
     print(part1)
+
+    part2 = simulate_lanternfish(start_days, n_days=256)
+    print(part2)
