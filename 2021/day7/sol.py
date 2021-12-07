@@ -1,3 +1,5 @@
+from typing import Callable
+
 import numpy as np
 import optuna
 
@@ -9,19 +11,16 @@ def read_crab_positions(filename: str) -> np.array:
     return np.array([d for d in data[0]], dtype=np.int32)
 
 
-def objective_pt1(trial: optuna.Trial) -> int:
+def create_objective(part2: bool) -> Callable:
+    def _objective(trial: optuna.Trial) -> float:
 
-    pos = trial.suggest_int("pos", crabs.min(), crabs.max())
-    cost = np.sum(np.abs(crabs - pos))
-    return cost
+        pos = trial.suggest_int("pos", crabs.min(), crabs.max())
+        distances = np.abs(crabs - pos)
+        if part2:
+            distances = distances * (distances + 1) / 2
+        return np.sum(distances)
 
-
-def objective_pt2(trial: optuna.Trial) -> int:
-
-    pos = trial.suggest_int("pos", crabs.min(), crabs.max())
-    distance = np.abs(crabs - pos)
-    cost = np.sum(distance * (distance + 1) / 2)
-    return cost
+    return _objective
 
 
 if __name__ == "__main__":
@@ -29,9 +28,9 @@ if __name__ == "__main__":
     optuna.logging.disable_default_handler()
 
     study_pt1 = optuna.create_study()
-    study_pt1.optimize(objective_pt1, 100)
-    print(study_pt1.best_params, study_pt1.best_value)
+    study_pt1.optimize(create_objective(part2=False), 100)
+    print(study_pt1.best_params, int(study_pt1.best_value))
 
     study_pt2 = optuna.create_study()
-    study_pt2.optimize(objective_pt2, 100)
-    print(study_pt2.best_params, study_pt2.best_value)
+    study_pt2.optimize(create_objective(part2=True), 100)
+    print(study_pt2.best_params, int(study_pt2.best_value))
