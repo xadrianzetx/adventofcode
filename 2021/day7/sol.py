@@ -20,12 +20,7 @@ def objective_pt2(trial: optuna.Trial) -> int:
 
     pos = trial.suggest_int("pos", crabs.min(), crabs.max())
     distance = np.abs(crabs - pos)
-    cost = 0
-
-    for dist in distance:
-        rng = np.arange(1, dist + 1)
-        cost += np.sum(rng)
-
+    cost = np.sum(distance * (distance + 1) / 2)
     return cost
 
 
