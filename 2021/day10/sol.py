@@ -1,12 +1,12 @@
 from collections import deque
-from typing import List, Optional, Tuple
+from typing import List, Optional
 
 import numpy as np
 
 OPENING = ["(", "[", "{", "<"]
 CLOSING = {"(": ")", "[": "]", "{": "}", "<": ">"}
 PENALTIES = {")": 3, "]": 57, "}": 1197, ">": 25137}
-POINTS = {")": 1, "]": 2, "}": 3, ">": 4}
+REWARDS = {")": 1, "]": 2, "}": 3, ">": 4}
 
 
 def read_lines(filename: str) -> List[str]:
@@ -17,11 +17,14 @@ def read_lines(filename: str) -> List[str]:
     return data
 
 
-def check_lines(lines: List[str]) -> int:
+def check_syntax(lines: List[str]) -> int:
 
     score = 0
     for line in lines:
-        score += check_line(line)[0]
+        stack = deque()
+        err = check_line(line, stack)
+        if err is not None:
+            score += PENALTIES[err]
 
     return score
 
@@ -30,23 +33,23 @@ def autocomplete(lines: List[str]) -> int:
 
     scores = []
     for line in lines:
-        _, stack = check_line(line)
-        if stack is not None:
+        stack = deque()
+        err = check_line(line, stack)
+        if err is None:
             score = 0
             stack.reverse()
 
             for char in stack:
                 score *= 5
-                score += POINTS[CLOSING[char]]
+                score += REWARDS[CLOSING[char]]
 
             scores.append(score)
 
-    return np.median(scores)
+    return np.median(scores).astype(np.uint32)
 
 
-def check_line(line: str) -> Tuple[int, Optional[deque]]:
+def check_line(line: str, stack: deque) -> Optional[str]:
 
-    stack = deque()
     for char in line:
         if char in OPENING:
             stack.append(char)
@@ -54,15 +57,15 @@ def check_line(line: str) -> Tuple[int, Optional[deque]]:
         else:
             opening = stack.pop()
             if char != CLOSING[opening]:
-                return PENALTIES[char], None
+                return char
 
-    return 0, stack
+    return None
 
 
 if __name__ == "__main__":
     lines = read_lines("d10.txt")
 
-    part1 = check_lines(lines)
+    part1 = check_syntax(lines)
     print(part1)
 
     part2 = autocomplete(lines)
