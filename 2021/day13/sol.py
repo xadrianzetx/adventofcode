@@ -37,11 +37,11 @@ def fold(dotmap: Dict[complex, int], axis: complex) -> None:
 
 def visualize(dotmap: Dict[complex, int]) -> None:
 
-    canvas = np.full((40, 40), ".")  # Big enough.
+    canvas = np.full((39, 6), ".")  # Big enough.
     for coord in dotmap:
         canvas[int(coord.real), int(coord.imag)] = "#"
 
-    canvas = np.flipud(canvas)
+    canvas = np.rot90(np.flipud(canvas), 3)
     for line in canvas:
         print("".join(line))
 
