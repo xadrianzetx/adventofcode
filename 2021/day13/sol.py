@@ -18,34 +18,26 @@ def read_instructions(filename: str) -> Dict[complex, int]:
 
 def fold(dotmap: Dict[complex, int], axis: complex) -> None:
 
-    to_pop = []
-    to_add = []
+    pairs = []
+    for coord in dotmap:
+        if coord.real > axis.real > 0:
+            offset = coord.real - axis.real
+            newx = complex(axis.real - offset, coord.imag)
+            pairs.append((coord, newx))
 
-    if axis.real > 0:
-        for key in dotmap.keys():
-            if key.real > axis.real:
-                offset = key.real - axis.real
-                newx = complex(axis.real - offset, key.imag)
-                to_add.append(newx)
-                to_pop.append(key)
+        elif coord.imag > axis.imag > 0:
+            offset = coord.imag - axis.imag
+            newy = complex(coord.real, axis.imag - offset)
+            pairs.append((coord, newy))
 
-    else:
-        for key in dotmap.keys():
-            if key.imag > axis.imag:
-                offset = key.imag - axis.imag
-                newy = complex(key.real, axis.imag - offset)
-                to_add.append(newy)
-                to_pop.append(key)
+    for rm, add in pairs:
+        dotmap.pop(rm)
+        dotmap[add] += 1
 
-    for key in to_pop:
-        dotmap.pop(key)
-
-    for key in to_add:
-        dotmap[key] += 1
 
 def visualize(dotmap: Dict[complex, int]) -> None:
 
-    canvas = np.full((40, 40), ".")
+    canvas = np.full((40, 40), ".")  # Big enough.
     for coord in dotmap:
         canvas[int(coord.real), int(coord.imag)] = "#"
 
@@ -55,22 +47,6 @@ def visualize(dotmap: Dict[complex, int]) -> None:
 
 
 if __name__ == "__main__":
-    dotmap = read_instructions("d13.txt")
-
-    # fold along x=655
-    # fold along y=447
-    # fold along x=327
-    # fold along y=223
-    # fold along x=163
-    # fold along y=111
-    # fold along x=81
-    # fold along y=55
-    # fold along x=40
-    # fold along y=27
-    # fold along y=13
-    # fold along y=6
-
-    # instructions = [0+7j, 5+0j]
     instructions = [
         655 + 0j,
         0 + 447j,
@@ -85,7 +61,13 @@ if __name__ == "__main__":
         0 + 13j,
         0 + 6j,
     ]
+
+    checksum = True
+    dotmap = read_instructions("d13.txt")
     for instruction in instructions:
         fold(dotmap, instruction)
+        if checksum:
+            checksum = False
+            print(len(dotmap))  # Part 1.
 
-    visualize(dotmap)
+    visualize(dotmap)  # Part 2.
