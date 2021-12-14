@@ -1,6 +1,5 @@
+from collections import defaultdict
 from typing import Dict
-
-import numpy as np
 
 
 def read_template(filename: str) -> Dict[str, str]:
@@ -16,15 +15,26 @@ def read_template(filename: str) -> Dict[str, str]:
 
 def grow_polymer(sequence: str, template: Dict[str, str], iter: int) -> int:
 
-    for _ in range(iter):
-        newseq = sequence[0]
-        for l, r in zip(sequence[:-1], sequence[1:]):
-            inserted = template[f"{l}{r}"]
-            newseq += f"{inserted}{r}"
-        sequence = newseq
+    pairs, counts = defaultdict(int), defaultdict(int)
+    for left, right in zip(sequence[:-1], sequence[1:]):
+        pairs[f"{left}{right}"] += 1
 
-    _, counts = np.unique(list(newseq), return_counts=True)
-    return max(counts) - min(counts)
+    for char in sequence:
+        counts[char] += 1
+
+    for _ in range(iter):
+        pcopy = pairs.copy()
+        for key, val in template.items():
+            count = pcopy[key]
+            pairs[key] -= count
+            counts[val] += count
+            left, right = list(key)
+            newleft = f"{left}{val}"
+            newright = f"{val}{right}"
+            pairs[newleft] += count
+            pairs[newright] += count
+
+    return max(counts.values()) - min(counts.values())
 
 
 if __name__ == "__main__":
@@ -32,3 +42,6 @@ if __name__ == "__main__":
 
     part1 = grow_polymer("PBVHVOCOCFFNBCNCCBHK", template, 10)
     print(part1)
+
+    part2 = grow_polymer("PBVHVOCOCFFNBCNCCBHK", template, 40)
+    print(part2)
