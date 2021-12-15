@@ -22,15 +22,15 @@ def find_path(risk_map: np.array) -> int:
     return min_risk
 
 
-def expand_map(cmap: np.array) -> np.array:
+def expand_map(risk_map: np.array) -> np.array:
 
     rows = []
     for row in range(5):
         tiles = []
         for col in range(5):
-            tile = np.copy(cmap)
+            tile = np.copy(risk_map)
             tile += row + col
-            tile[tile > 9] = tile[tile > 9] - 9
+            tile[tile > 9] -= 9
             tiles.append(tile)
 
         row = np.concatenate(tiles, axis=-1)
