@@ -1,10 +1,85 @@
 from dataclasses import dataclass
-from typing import List, Optional, Tuple
+from typing import Generator, List, Optional, Tuple, Union
 
 import numpy as np
 
 
-def decode_message(filename: str) -> str:
+@dataclass
+class Packet:
+    version: int
+    type: int
+    body: Optional[int]
+    children: Optional[List["Packet"]]
+
+    def sum_versions(self) -> int:
+
+        if self.body is not None:
+            return self.version
+
+        ver_sum = 0
+        for child in self.children:
+            ver_sum += child.sum_versions()
+
+        return ver_sum + self.version
+
+    def calculate(self) -> int:
+
+        if self.type == 4:
+            return self.body
+
+        if self.type == 0:
+            return sum([c.calculate() for c in self.children])
+
+        if self.type == 1:
+            return np.prod([c.calculate() for c in self.children])
+
+        if self.type == 2:
+            return min([c.calculate() for c in self.children])
+
+        if self.type == 3:
+            return max([c.calculate() for c in self.children])
+
+        if self.type == 5:
+            foo = self.children[0].calculate() > self.children[1].calculate()
+            return 1 if foo else 0
+
+        if self.type == 6:
+            foo = self.children[0].calculate() < self.children[1].calculate()
+            return 1 if foo else 0
+
+        if self.type == 7:
+            foo = self.children[0].calculate() == self.children[1].calculate()
+            return 1 if foo else 0
+
+
+class Stream:
+    def __init__(self, generator: Generator) -> None:
+
+        self._generator = generator
+        self.consumed = 0
+
+    @classmethod
+    def from_transmission(cls, transmission: str) -> "Stream":
+        def _generator(transmission: str) -> Generator:
+
+            for char in transmission:
+                yield char
+
+        return cls(_generator(transmission))
+
+    def take(self, n_bits: int, decimal: bool = True) -> Union[int, str]:
+
+        msg = "".join([next(self._generator) for _ in range(n_bits)])
+        self.consumed += n_bits
+
+        return int(msg, 2) if decimal else msg
+
+    def checksum(self) -> int:
+
+        return sum([int(bit, 2) for bit in self._generator])
+
+
+def decode_transmission(filename: str) -> str:
 
     with open(filename) as file:
         msg = file.read().strip()
@@ -13,106 +88,53 @@ def decode_message(filename: str) -> str:
     return msg[2:]
 
 
-@dataclass
-class Packet:
-    ver: int
-    id: int
-    body: Optional[int]
-    children: Optional[List["Packet"]]
+def parse_packets(stream: Stream) -> Tuple[Packet, int]:
 
-    def sum_versions(self) -> int:
-
-        if self.body is not None:
-            return int(self.ver, 2)
-
-        ver_sum = 0
-        for child in self.children:
-            ver_sum += child.sum_versions()
-
-        return ver_sum + int(self.ver, 2)
-
-    def calculate(self) -> int:
-
-        if self.id == 4:
-            return self.body
-
-        if self.id == 0:
-            return sum([c.calculate() for c in self.children])
-
-        if self.id == 1:
-            return np.prod([c.calculate() for c in self.children])
-
-        if self.id == 2:
-            return min([c.calculate() for c in self.children])
-
-        if self.id == 3:
-            return max([c.calculate() for c in self.children])
-
-        if self.id == 5:
-            foo = self.children[0].calculate() > self.children[1].calculate()
-            return 1 if foo else 0
-
-        if self.id == 6:
-            foo = self.children[0].calculate() < self.children[1].calculate()
-            return 1 if foo else 0
-
-        if self.id == 7:
-            foo = self.children[0].calculate() == self.children[1].calculate()
-            return 1 if foo else 0
-
-
-def parse_packets(packet: str) -> Tuple[Packet, str]:
-
-    version = packet[:3]
-    type = int(packet[3:6], 2)
-    packet = packet[6:]
+    version = stream.take(3)
+    type = stream.take(3)
 
     if type == 4:
         lit = ""
         while True:
-            grp = packet[:5]
-            packet = packet[5:]
-            prefix = grp[0]
-            lit += grp[1:]
-            if int(prefix, 2) == 0:
+            group = stream.take(5, decimal=False)
+            lit += group[1:]
+            if int(group[0], 2) == 0:
                 break
-        body = int(lit, 2)
-        p = Packet(version, type, body, None)
+
+        packet = Packet(version, type, int(lit, 2), None)
 
     else:
-        ltid = packet[0]
-        if int(ltid) == 0:
-            # 15 bit total length
-            tl = int(packet[1:16], 2)
-            # print(tl)
-            packet = packet[16:]
-            children = []
-            read = 0
-            while read < tl:
-                pl = len(packet)
-                child, packet = parse_packets(packet)
+        len_type_id = stream.take(1)
+        children = []
+        if len_type_id == 0:
+            # 15 bits are a number that represents the total
+            # length in bits of the sub-packets contained by this packet.
+            to_read = stream.take(15)
+            checkpoint = stream.consumed
+            while True:
+                child = parse_packets(stream)
                 children.append(child)
-                read += pl - len(packet)
-            p = Packet(version, type, None, children)
+                if stream.consumed - checkpoint == to_read:
+                    break
 
         else:
-            # 11 bit num of packages
-            bl = int(packet[1:12], 2)
-            packet = packet[12:]
-            children = []
-            for r in range(bl):
-                child, packet = parse_packets(packet)
+            # 11 bits are a number that represents the number of
+            # sub-packets immediately contained by this packet.
+            num_subpackets = stream.take(11)
+            for _ in range(num_subpackets):
+                child = parse_packets(stream)
                 children.append(child)
-            p = Packet(version, type, None, children)
 
-    return p, packet
+        packet = Packet(version, type, None, children)
+
+    return packet
 
 
 if __name__ == "__main__":
-    message = decode_message("d16.txt")
-
-    packet, check = parse_packets(message)
-    assert int(check, 2) == 0
+    stream = Stream.from_transmission(decode_transmission("d16.txt"))
+    packet = parse_packets(stream)
+    # Ensure only garbage bits are left in message
+    assert stream.checksum() == 0
 
     part1 = packet.sum_versions()
     print(part1)
