@@ -1,7 +1,17 @@
 from dataclasses import dataclass
-from typing import Generator, List, Optional, Tuple, Union
+from typing import Generator, List, Optional, Union
 
 import numpy as np
+
+OPS = {
+    0: sum,
+    1: np.prod,
+    2: min,
+    3: max,
+    5: lambda c: 1 if c[0] > c[1] else 0,
+    6: lambda c: 1 if c[0] < c[1] else 0,
+    7: lambda c: 1 if c[0] == c[1] else 0,
+}
 
 
 @dataclass
@@ -11,45 +21,26 @@ class Packet:
     body: Optional[int]
     children: Optional[List["Packet"]]
 
-    def sum_versions(self) -> int:
+    def sum_version(self) -> int:
 
         if self.body is not None:
             return self.version
 
         ver_sum = 0
         for child in self.children:
-            ver_sum += child.sum_versions()
+            ver_sum += child.sum_version()
 
         return ver_sum + self.version
 
-    def calculate(self) -> int:
+    def eval_expression(self) -> int:
 
         if self.type == 4:
             return self.body
 
-        if self.type == 0:
-            return sum([c.calculate() for c in self.children])
-
-        if self.type == 1:
-            return np.prod([c.calculate() for c in self.children])
-
-        if self.type == 2:
-            return min([c.calculate() for c in self.children])
-
-        if self.type == 3:
-            return max([c.calculate() for c in self.children])
-
-        if self.type == 5:
-            foo = self.children[0].calculate() > self.children[1].calculate()
-            return 1 if foo else 0
-
-        if self.type == 6:
-            foo = self.children[0].calculate() < self.children[1].calculate()
-            return 1 if foo else 0
-
-        if self.type == 7:
-            foo = self.children[0].calculate() == self.children[1].calculate()
-            return 1 if foo else 0
+        else:
+            op = OPS[self.type]
+            children = [c.eval_expression() for c in self.children]
+            return op(children)
 
 
 class Stream:
@@ -88,7 +79,7 @@ def decode_transmission(filename: str) -> str:
     return msg[2:]
 
 
-def parse_packets(stream: Stream) -> Tuple[Packet, int]:
+def parse_packets(stream: Stream) -> Packet:
 
     version = stream.take(3)
     type = stream.take(3)
@@ -110,11 +101,11 @@ def parse_packets(stream: Stream) -> Tuple[Packet, int]:
             # 15 bits are a number that represents the total
             # length in bits of the sub-packets contained by this packet.
             to_read = stream.take(15)
-            checkpoint = stream.consumed
+            before = stream.consumed
             while True:
                 child = parse_packets(stream)
                 children.append(child)
-                if stream.consumed - checkpoint == to_read:
+                if stream.consumed - before == to_read:
                     break
 
         else:
@@ -133,11 +124,11 @@ def parse_packets(stream: Stream) -> Tuple[Packet, int]:
 if __name__ == "__main__":
     stream = Stream.from_transmission(decode_transmission("d16.txt"))
     packet = parse_packets(stream)
-    # Ensure only garbage bits are left in message
+    # Ensure only garbage bits are left in message.
     assert stream.checksum() == 0
 
-    part1 = packet.sum_versions()
+    part1 = packet.sum_version()
     print(part1)
 
-    part2 = packet.calculate()
+    part2 = packet.eval_expression()
     print(part2)
