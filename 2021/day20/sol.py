@@ -30,11 +30,11 @@ def enhance(img: np.array, lut: List[int], n_iter: int) -> List[int]:
         return lut[idx]
 
     lit = []
-    for _ in range(n_iter):
+    for i in range(n_iter):
         # Since first and last bits in image enhancement algorithm
         # are respectively 1 and 0, whole grid will switch to light every
         # other iteration. Edges have to account for this.
-        cval = 1 if img[0, 0] == 1 else 0
+        cval = 0 if i % 2 == 0 else 1
         img = generic_filter(img, _kernel, size=3, mode="constant", cval=cval)
         lit.append(img.sum())
 
