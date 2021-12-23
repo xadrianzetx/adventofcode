@@ -1,0 +1,14 @@
+Advent of solving things with pen and paper
+
+#############
+#...........#
+###B#C#C#B###
+  #D#D#A#A#
+  #########
+
+
+# Part 1
+18051
+
+# Part 2
+50245
