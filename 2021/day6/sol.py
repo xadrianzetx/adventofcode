@@ -20,7 +20,7 @@ def simulate_lanternfish(start_days: List[int], n_days: int = 80) -> int:
 
 
 @lru_cache()
-def spawn(day: int, total_days: int, fforward: bool = True):
+def spawn(day: int, total_days: int, fforward: bool = True) -> int:
 
     if fforward:
         # Initial incubation period.
