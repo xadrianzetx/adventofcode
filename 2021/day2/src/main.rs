@@ -22,7 +22,7 @@ struct SteeringInput {
 
 impl From<&str> for SteeringInput {
     fn from(direction: &str) -> Self {
-        let data: Vec<&str> = direction.split(" ").collect();
+        let data: Vec<&str> = direction.split(' ').collect();
         let op = SteeringOps::from(data[0]);
         let amt = data[1].parse::<i32>().unwrap();
         SteeringInput { op, amt }
@@ -84,12 +84,12 @@ fn main() {
 
     include_str!("../d2.txt")
         .lines()
-        .map(|l| SteeringInput::from(l))
+        .map(SteeringInput::from)
         .collect::<Vec<SteeringInput>>()
         .iter()
         .for_each(|e| {
-            pt1.update_position(&e);
-            pt2.update_position(&e);
+            pt1.update_position(e);
+            pt2.update_position(e);
         });
 
     println!("{}", pt1.get_position());
