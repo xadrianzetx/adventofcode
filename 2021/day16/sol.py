@@ -1,23 +1,39 @@
 from dataclasses import dataclass
-from typing import Generator, List, Optional, Union
+from enum import Enum
+from typing import Callable, Generator, List, Optional, Union
 
 import numpy as np
 
-OPS = {
-    0: sum,
-    1: np.prod,
-    2: min,
-    3: max,
-    5: lambda c: 1 if c[0] > c[1] else 0,
-    6: lambda c: 1 if c[0] < c[1] else 0,
-    7: lambda c: 1 if c[0] == c[1] else 0,
-}
+
+class PacketType(Enum):
+
+    OP_SUM = 0
+    OP_PROD = 1
+    OP_MIN = 2
+    OP_MAX = 3
+    LITERAL = 4
+    OP_GT = 5
+    OP_LT = 6
+    OP_EQ = 7
+
+    @classmethod
+    def associated_op(cls, type: "PacketType") -> Callable:
+
+        return {
+            cls.OP_SUM: sum,
+            cls.OP_PROD: np.prod,
+            cls.OP_MIN: min,
+            cls.OP_MAX: max,
+            cls.OP_GT: lambda c: 1 if c[0] > c[1] else 0,
+            cls.OP_LT: lambda c: 1 if c[0] < c[1] else 0,
+            cls.OP_EQ: lambda c: 1 if c[0] == c[1] else 0,
+        }[type]
 
 
 @dataclass
 class Packet:
     version: int
-    type: int
+    type: PacketType
     body: Optional[int]
     children: Optional[List["Packet"]]
 
@@ -34,13 +50,12 @@ class Packet:
 
     def eval_expression(self) -> int:
 
-        if self.type == 4:
+        if self.type == PacketType.LITERAL:
             return self.body
 
-        else:
-            op = OPS[self.type]
-            children = [c.eval_expression() for c in self.children]
-            return op(children)
+        op = PacketType.associated_op(self.type)
+        children = [c.eval_expression() for c in self.children]
+        return op(children)
 
 
 class Stream:
@@ -62,7 +77,6 @@ class Stream:
 
         msg = "".join([next(self._generator) for _ in range(n_bits)])
         self.consumed += n_bits
-
         return int(msg, 2) if decimal else msg
 
     def checksum(self) -> int:
@@ -82,9 +96,9 @@ def decode_transmission(filename: str) -> str:
 def parse_packets(stream: Stream) -> Packet:
 
     version = stream.take(3)
-    type = stream.take(3)
+    type = PacketType(stream.take(3))
 
-    if type == 4:
+    if type == PacketType.LITERAL:
         lit = ""
         while True:
             group = stream.take(5, decimal=False)
