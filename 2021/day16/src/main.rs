@@ -72,6 +72,37 @@ impl Packet {
     }
 }
 
+struct BITStreamSlice<T> {
+    bits: Vec<T>,
+}
+
+impl<T> BITStreamSlice<T> {
+    fn into_raw(self) -> Vec<T> {
+        self.bits
+    }
+}
+
+impl BITStreamSlice<u64> {
+    fn into_u64(self) -> u64 {
+        let mut acc = 0;
+        for (n, i) in self.bits.iter().rev().enumerate() {
+            acc += i * 2_u64.pow(n as u32);
+        }
+        acc
+    }
+
+    fn into_usize(self) -> usize {
+        self.into_u64() as usize
+    }
+}
+
+impl From<Vec<u64>> for BITStreamSlice<u64> {
+    fn from(bits: Vec<u64>) -> Self {
+        BITStreamSlice { bits }
+    }
+}
+
+#[derive(Default)]
 struct BITStream {
     consumed: usize,
     bits: Vec<u64>,
@@ -84,14 +115,19 @@ impl From<&str> for BITStream {
             .into_iter()
             .map(|c| c.to_digit(10).unwrap() as u64)
             .collect::<Vec<u64>>();
-        BITStream { consumed: 0, bits }
+
+        BITStream {
+            bits,
+            ..Default::default()
+        }
     }
 }
 
 impl BITStream {
-    fn take(&mut self, n: usize) -> Vec<u64> {
+    fn take(&mut self, n: usize) -> BITStreamSlice<u64> {
         self.consumed += n;
-        Vec::from_iter(self.bits.drain(..n))
+        let bits = Vec::from_iter(self.bits.drain(..n));
+        BITStreamSlice::from(bits)
     }
 
     fn checksum(&self) -> u64 {
@@ -99,30 +135,21 @@ impl BITStream {
     }
 }
 
-fn bitvec_to_int(bits: &[u64]) -> u64 {
-    // FIXME This should be a macro.
-    let mut acc = 0;
-    for (n, i) in bits.iter().rev().enumerate() {
-        acc += i * 2_u64.pow(n as u32);
-    }
-    acc
-}
-
 fn parse_packets(stream: &mut BITStream) -> Packet {
-    let version = bitvec_to_int(&stream.take(3));
-    let typ = PacketType::from(bitvec_to_int(&stream.take(3)));
+    let version = stream.take(3).into_u64();
+    let typ = PacketType::from(stream.take(3).into_u64());
 
     if typ == PacketType::Literal {
         let mut lit: Vec<u64> = Vec::new();
         loop {
-            let group = stream.take(5);
+            let group = stream.take(5).into_raw();
             lit.extend(group[1..].iter());
             if group[0] == 0 {
                 break;
             }
         }
 
-        let body = bitvec_to_int(&lit);
+        let body = BITStreamSlice::from(lit).into_u64();
         Packet {
             version,
             typ,
@@ -130,10 +157,10 @@ fn parse_packets(stream: &mut BITStream) -> Packet {
             children: None,
         }
     } else {
-        let len_type_id = bitvec_to_int(&stream.take(1));
+        let len_type_id = stream.take(1).into_u64();
         let mut children: Vec<Packet> = Vec::new();
         if len_type_id == 0 {
-            let to_read = bitvec_to_int(&stream.take(15)) as usize;
+            let to_read = stream.take(15).into_usize();
             let before = stream.consumed;
             loop {
                 let child = parse_packets(stream);
@@ -143,7 +170,7 @@ fn parse_packets(stream: &mut BITStream) -> Packet {
                 }
             }
         } else {
-            let num_subpackets = bitvec_to_int(&stream.take(11));
+            let num_subpackets = stream.take(11).into_u64();
             for _ in 0..num_subpackets {
                 let child = parse_packets(stream);
                 children.push(child);
