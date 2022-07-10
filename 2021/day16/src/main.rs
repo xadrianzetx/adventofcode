@@ -135,6 +135,18 @@ impl BITStream {
     }
 }
 
+fn decode_message(message: &str, buffer: &mut String) {
+    message
+        .chars()
+        .map(|c| c.to_digit(16).unwrap() as u8)
+        .collect::<Vec<u8>>()
+        .chunks(2)
+        .for_each(|bytes| {
+            let byte = bytes[0] << 4 | bytes[1];
+            buffer.push_str(&format!("{:08b}", byte));
+        });
+}
+
 fn parse_packets(stream: &mut BITStream) -> Packet {
     let version = stream.take(3).into_u64();
     let typ = PacketType::from(stream.take(3).into_u64());
@@ -187,8 +199,10 @@ fn parse_packets(stream: &mut BITStream) -> Packet {
 }
 
 fn main() {
-    let message = include_str!("../d16_decoded.txt").trim();
-    let mut stream = BITStream::from(message);
+    let mut buffer = String::new();
+    decode_message(include_str!("../d16.txt").trim(), &mut buffer);
+
+    let mut stream = BITStream::from(buffer.as_str());
     let packet = parse_packets(&mut stream);
 
     assert_eq!(stream.checksum(), 0);
