@@ -1,52 +1,22 @@
-#[derive(PartialEq)]
-enum Moves {
-    Rock,
-    Paper,
-    Scissors,
-}
-
-impl From<&str> for Moves {
-    fn from(played: &str) -> Self {
-        match played {
-            "A" | "X" => Self::Rock,
-            "B" | "Y" => Self::Paper,
-            "C" | "Z" => Self::Scissors,
-            _ => panic!(),
-        }
+fn parse(input: &str) -> i32 {
+    match input {
+        "A" | "X" => 0,
+        "B" | "Y" => 1,
+        "C" | "Z" => 2,
+        _ => panic!(),
     }
-}
-
-fn score_shape(mov: &Moves) -> i32 {
-    match mov {
-        Moves::Rock => 1,
-        Moves::Paper => 2,
-        Moves::Scissors => 3,
-    }
-}
-
-fn check_win(left: &Moves, right: &Moves) -> i32 {
-    if left == right {
-        return 3;
-    }
-    if right == &Moves::Rock && left == &Moves::Scissors {
-        return 6;
-    }
-    if right == &Moves::Paper && left == &Moves::Rock {
-        return 6;
-    }
-    if right == &Moves::Scissors && left == &Moves::Paper {
-        return 6;
-    }
-    0
 }
 
 fn main() {
-    let mut total = 0;
+    let mut total_known_move = 0;
+    let mut total_known_outcome = 0;
     include_str!("../input").lines().for_each(|line| {
         let mut split = line.split(' ');
-        let elf = Moves::from(split.next().unwrap());
-        let player = Moves::from(split.next().unwrap());
-        total += score_shape(&player) + check_win(&elf, &player);
+        let elf = parse(split.next().unwrap());
+        let player = parse(split.next().unwrap());
+        total_known_move += (player - elf + 1).rem_euclid(3) * 3 + player + 1;
+        total_known_outcome += (elf + player - 1).rem_euclid(3) + 1 + player * 3;
     });
-    println!("Part1: {}", total);
+    println!("Part1: {}", total_known_move);
+    println!("Part2: {}", total_known_outcome);
 }
