@@ -1,15 +1,16 @@
 use itertools::Itertools;
 use std::collections::{HashMap, HashSet};
 
-fn prepare_alphabet_lookup() -> HashMap<char, i32> {
+fn prepare_alphabet_lookup() -> HashMap<char, u32> {
     let alphabet = String::from_utf8((b'a'..=b'z').chain(b'A'..=b'Z').collect()).unwrap();
-    let priorities: Vec<i32> = (0..alphabet.len() as i32).collect();
+    let priorities: Vec<u32> = (0..alphabet.len() as u32).collect();
     alphabet.chars().zip(priorities).into_iter().collect()
 }
 
-fn find_common_items(sets: Vec<HashSet<char>>) -> i32 {
+fn find_common_items(items: Vec<HashSet<char>>) -> u32 {
     let alphabet = prepare_alphabet_lookup();
-    sets.into_iter()
+    items
+        .into_iter()
         .reduce(|a, b| a.intersection(&b).cloned().collect())
         .unwrap()
         .iter()
@@ -17,7 +18,7 @@ fn find_common_items(sets: Vec<HashSet<char>>) -> i32 {
         .sum()
 }
 
-fn find_misplaced_and_prioritize(data: &str) -> i32 {
+fn find_misplaced_and_prioritize(data: &str) -> u32 {
     data.lines()
         .map(|line| {
             let compartments = line.split_at(line.len() / 2);
@@ -30,7 +31,7 @@ fn find_misplaced_and_prioritize(data: &str) -> i32 {
         .sum()
 }
 
-fn find_badges_and_prioritize(data: &str) -> i32 {
+fn find_badges_and_prioritize(data: &str) -> u32 {
     data.lines()
         .chunks(3)
         .into_iter()
