@@ -1,29 +1,48 @@
+use itertools::Itertools;
 use std::collections::{HashMap, HashSet};
 
 fn prepare_alphabet_lookup() -> HashMap<char, i32> {
-    let mut map = HashMap::new();
     let alphabet = String::from_utf8((b'a'..=b'z').chain(b'A'..=b'Z').collect()).unwrap();
-    for (num, letter) in alphabet.chars().enumerate() {
-        map.insert(letter, num as i32);
-    }
-    map
+    let other: Vec<i32> = (0..alphabet.len() as i32).collect();
+    alphabet.chars().zip(other).into_iter().collect()
+}
+
+fn compare_sets(sets: Vec<HashSet<char>>) -> i32 {
+    let alphabet = prepare_alphabet_lookup();
+    sets.into_iter()
+        .reduce(|a, b| a.intersection(&b).cloned().collect())
+        .unwrap()
+        .iter()
+        .map(|c| alphabet.get(c).unwrap() + 1)
+        .sum()
+}
+
+fn find_misplaced_and_prioritize(data: &str) -> i32 {
+    data.lines()
+        .map(|line| {
+            let ab = line.split_at(line.len() / 2);
+            let sets: Vec<HashSet<char>> = vec![
+                HashSet::from_iter(ab.0.chars()),
+                HashSet::from_iter(ab.1.chars()),
+            ];
+            compare_sets(sets)
+        })
+        .sum()
+}
+
+fn find_badges_and_prioritize(data: &str) -> i32 {
+    data.lines()
+        .chunks(3)
+        .into_iter()
+        .map(|grp| {
+            let sets = grp.map(|g| HashSet::from_iter(g.chars())).collect();
+            compare_sets(sets)
+        })
+        .sum()
 }
 
 fn main() {
-    let mut total = 0;
-    let alphabet = prepare_alphabet_lookup();
-    include_str!("../test-input").lines().for_each(|line| {
-        let mut hs = HashSet::new();
-        let compartments = line.split_at(line.len() / 2);
-        for letter in compartments.0.chars() {
-            if compartments.1.contains(letter) {
-                hs.insert(letter);
-            }
-        }
-        for l in &hs {
-            let cnt = alphabet.get(l).unwrap();
-            total += cnt + 1;
-        }
-    });
-    println!("{}", total);
+    let data = include_str!("../input");
+    println!("Part1: {}", find_misplaced_and_prioritize(data));
+    println!("Part2: {}", find_badges_and_prioritize(data));
 }
