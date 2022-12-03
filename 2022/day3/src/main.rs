@@ -3,11 +3,11 @@ use std::collections::{HashMap, HashSet};
 
 fn prepare_alphabet_lookup() -> HashMap<char, i32> {
     let alphabet = String::from_utf8((b'a'..=b'z').chain(b'A'..=b'Z').collect()).unwrap();
-    let other: Vec<i32> = (0..alphabet.len() as i32).collect();
-    alphabet.chars().zip(other).into_iter().collect()
+    let priorities: Vec<i32> = (0..alphabet.len() as i32).collect();
+    alphabet.chars().zip(priorities).into_iter().collect()
 }
 
-fn compare_sets(sets: Vec<HashSet<char>>) -> i32 {
+fn find_common_items(sets: Vec<HashSet<char>>) -> i32 {
     let alphabet = prepare_alphabet_lookup();
     sets.into_iter()
         .reduce(|a, b| a.intersection(&b).cloned().collect())
@@ -20,12 +20,12 @@ fn compare_sets(sets: Vec<HashSet<char>>) -> i32 {
 fn find_misplaced_and_prioritize(data: &str) -> i32 {
     data.lines()
         .map(|line| {
-            let ab = line.split_at(line.len() / 2);
-            let sets: Vec<HashSet<char>> = vec![
-                HashSet::from_iter(ab.0.chars()),
-                HashSet::from_iter(ab.1.chars()),
+            let compartments = line.split_at(line.len() / 2);
+            let items: Vec<HashSet<char>> = vec![
+                HashSet::from_iter(compartments.0.chars()),
+                HashSet::from_iter(compartments.1.chars()),
             ];
-            compare_sets(sets)
+            find_common_items(items)
         })
         .sum()
 }
@@ -35,8 +35,8 @@ fn find_badges_and_prioritize(data: &str) -> i32 {
         .chunks(3)
         .into_iter()
         .map(|grp| {
-            let sets = grp.map(|g| HashSet::from_iter(g.chars())).collect();
-            compare_sets(sets)
+            let items = grp.map(|c| HashSet::from_iter(c.chars())).collect();
+            find_common_items(items)
         })
         .sum()
 }
