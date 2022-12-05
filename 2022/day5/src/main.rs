@@ -1,4 +1,29 @@
+use lazy_static::lazy_static;
 use regex::Regex;
+
+struct Moves {
+    qty: usize,
+    from: usize,
+    to: usize,
+}
+
+impl From<&str> for Moves {
+    fn from(line: &str) -> Self {
+        lazy_static! {
+            static ref RE: Regex = Regex::new(r"\d+").unwrap();
+        }
+        let moves = RE
+            .find_iter(line)
+            .filter_map(|digits| digits.as_str().parse().ok())
+            .collect::<Vec<usize>>();
+
+        Moves {
+            qty: moves[0],
+            from: moves[1] - 1,
+            to: moves[2] - 1,
+        }
+    }
+}
 
 fn make_stacks() -> Vec<Vec<char>> {
     //     [V] [G]             [H]
@@ -23,32 +48,26 @@ fn make_stacks() -> Vec<Vec<char>> {
     ]
 }
 
-fn move_crates(part: u32) {
+fn move_crates(data: &str, part1: bool) -> String {
     let mut stacks = make_stacks();
-    let re = Regex::new(r"\d+").unwrap();
-    include_str!("../input").lines().for_each(|line| {
-        let moves = re
-            .find_iter(line)
-            .filter_map(|digits| digits.as_str().parse().ok())
-            .collect::<Vec<usize>>();
+    data.lines().for_each(|line| {
+        let moves = Moves::from(line);
+        let qty_moved = stacks[moves.from].len().saturating_sub(moves.qty);
+        let mut crane = stacks[moves.from].split_off(qty_moved);
 
-        let qty_moved = stacks[moves[1] - 1].len().saturating_sub(moves[0]);
-        let mut crane = stacks[moves[1] - 1].split_off(qty_moved);
-
-        if part == 1 {
+        if part1 {
             crane.reverse();
         }
-        stacks[moves[2] - 1].extend_from_slice(&crane);
+        stacks[moves.to].extend_from_slice(&crane);
     });
 
-    print!("Part{}: ", part);
-    stacks
-        .iter_mut()
-        .for_each(|s| print!("{}", s.pop().unwrap()));
-    println!();
+    let mut buff = String::new();
+    stacks.iter_mut().for_each(|s| buff.push(s.pop().unwrap()));
+    buff
 }
 
 fn main() {
-    move_crates(1);
-    move_crates(2);
+    let data = include_str!("../input");
+    println!("Part1: {}", move_crates(data, true));
+    println!("Part2: {}", move_crates(data, false));
 }
