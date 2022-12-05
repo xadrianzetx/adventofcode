@@ -32,19 +32,13 @@ fn move_crates(part: u32) {
             .filter_map(|digits| digits.as_str().parse().ok())
             .collect::<Vec<usize>>();
 
-        let mut crane = Vec::new();
-        for _ in 0..moves[0] {
-            let cargo = stacks[moves[1] - 1].pop();
-            crane.push(cargo.unwrap());
-        }
+        let qty_moved = stacks[moves[1] - 1].len().saturating_sub(moves[0]);
+        let mut crane = stacks[moves[1] - 1].split_off(qty_moved);
 
         if part == 1 {
             crane.reverse();
         }
-
-        for _ in 0..moves[0] {
-            stacks[moves[2] - 1].push(crane.pop().unwrap());
-        }
+        stacks[moves[2] - 1].extend_from_slice(&crane);
     });
 
     print!("Part{}: ", part);
