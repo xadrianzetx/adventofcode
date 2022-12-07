@@ -42,9 +42,7 @@ impl FileSystem {
             .min()
             .unwrap()
     }
-}
 
-impl FileSystem {
     fn run_command(&mut self, command: &str) {
         let parts: Vec<&str> = command.split(' ').collect();
         match parts[1] {
