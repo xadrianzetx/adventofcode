@@ -51,6 +51,19 @@ impl FileSystem {
         }
         total
     }
+
+    fn find_smallest(&self) -> u32 {
+        let used = 70000000 - self.fs.get("/").unwrap().get_size(self);
+        let required = 30000000 - used;
+        let mut min = 70000000;
+        for (_, dir) in &self.fs {
+            let size = dir.get_size(self);
+            if size >= required && size < min {
+                min = size;
+            }
+        }
+        min
+    }
 }
 
 impl FileSystem {
@@ -104,7 +117,7 @@ impl FileSystem {
 
 fn main() {
     let mut fs = FileSystem::default();
-    include_str!("../input").lines().for_each(|line| {
+    include_str!("../test-input").lines().for_each(|line| {
         if line.starts_with("$") {
             fs.run_command(line);
         } else {
@@ -112,4 +125,5 @@ fn main() {
         }
     });
     println!("{}", fs.sum_limited_size());
+    println!("{}", fs.find_smallest());
 }
