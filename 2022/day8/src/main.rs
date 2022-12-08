@@ -14,37 +14,67 @@ fn main() {
 
     let mut totals = 0;
     for (loc, tree) in &trees {
-        let a = ((0..loc.0)
+        let mut ca = 0;
+        let mut cm = false;
+        (0..loc.0)
             .into_iter()
             .map(|r| trees.get(&(r, loc.1)).unwrap())
-            .max()
-            .unwrap_or(&-1)
-            < tree) as usize;
-
-        let b = ((loc.0 + 1..rowcount)
+            .rev()
+            .for_each(|t| {
+                if !cm {
+                    ca += 1;
+                }
+                if t >= tree {
+                    cm = true
+                }
+            });
+        
+        let mut cb = 0;
+        cm = false;
+        (loc.0 + 1..rowcount)
             .into_iter()
             .map(|r| trees.get(&(r, loc.1)).unwrap())
-            .max()
-            .unwrap_or(&-1)
-            < tree) as usize;
-
-        let c = ((0..loc.1)
+            .for_each(|t| {
+                if !cm {
+                    cb += 1;
+                }
+                if t >= tree {
+                    cm = true;
+                }
+            });
+        
+        let mut cc = 0;
+        cm = false;
+        (0..loc.1)
             .into_iter()
             .map(|r| trees.get(&(loc.0, r)).unwrap())
-            .max()
-            .unwrap_or(&-1)
-            < tree) as usize;
-
-        let d = ((loc.1 + 1..colcount)
+            .rev()
+            .for_each(|t| {
+                if !cm {
+                    cc += 1;
+                }
+                if t >= tree {
+                    cm = true;
+                }
+            });
+        
+        let mut cd = 0;
+        cm = false;
+        (loc.1 + 1..colcount)
             .into_iter()
             .map(|r| trees.get(&(loc.0, r)).unwrap())
-            .max()
-            .unwrap_or(&-1)
-            < tree) as usize;
-
-        if a + b + c + d > 0 {
-            totals += 1;
-            // println!("{:?} visible", loc);
+            .for_each(|t| {
+                if !cm {
+                    cd += 1;
+                }
+                if t >= tree {
+                    cm = true;
+                }
+            });
+        
+        let dist = ca * cb * cc * cd;
+        if dist > totals {
+            totals = dist;
         }
     }
     println!("{}", totals);
