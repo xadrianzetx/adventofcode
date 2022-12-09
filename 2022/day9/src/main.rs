@@ -49,7 +49,7 @@ impl Knot {
         }
     }
 
-    fn update_head_position(&mut self, direction: &Directions) {
+    fn move_in_direction(&mut self, direction: &Directions) {
         match direction {
             Directions::Left => self.position.x -= 1,
             Directions::Right => self.position.x += 1,
@@ -112,8 +112,8 @@ impl Rope {
         }
     }
 
-    fn update_position(&mut self, direction: &Directions) {
-        self.head.update_head_position(direction);
+    fn move_head(&mut self, direction: &Directions) {
+        self.head.move_in_direction(direction);
     }
 
     fn count_visited_by_tail(&self) -> usize {
@@ -128,11 +128,10 @@ impl Rope {
 fn main() {
     let mut rope = Rope::with_length(10);
     include_str!("../input").lines().for_each(|line| {
-        let mut d = line.split(' ');
-        let direction = Directions::from(d.next().unwrap());
-        let amt: i32 = d.next().unwrap().parse().unwrap();
-        for _ in 0..amt {
-            rope.update_position(&direction);
+        let line = line.split_whitespace().collect::<Vec<&str>>().join("");
+        let (direction, n_steps) = line.split_at(1);
+        for _ in 0..n_steps.parse().unwrap() {
+            rope.move_head(&Directions::from(direction));
         }
     });
     println!("Part1: {}", rope.count_visited_by(1));
