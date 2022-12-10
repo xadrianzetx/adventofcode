@@ -28,7 +28,7 @@ struct CpuProbe {
 impl CpuProbe {
     fn with_sampling_points(sampling_points: Vec<usize>) -> Self {
         CpuProbe {
-            register_state: Vec::new(),
+            register_state: Vec::with_capacity(sampling_points.len()),
             sampling_points,
         }
     }
@@ -51,15 +51,14 @@ impl OnClockTick for CpuProbe {
 }
 
 struct Crt {
-    current_drawn: i32,
     screen_buffer: Vec<char>,
 }
 
 impl Crt {
     fn new() -> Self {
         Crt {
-            current_drawn: 0,
-            screen_buffer: Vec::new(),
+            // Screen is 40 pixels wide and 6 pixels high.
+            screen_buffer: Vec::with_capacity(240),
         }
     }
 
@@ -72,14 +71,13 @@ impl Crt {
 }
 
 impl OnClockTick for Crt {
-    fn sample(&mut self, _: usize, register: i32) {
-        if [register - 1, register, register + 1].contains(&self.current_drawn) {
-            // This font is more readable than one suggested by AOC. :^)
+    fn sample(&mut self, tick: usize, register: i32) {
+        let beam = (tick as i32 - 1) % 40;
+        if register - 1 <= beam && beam <= register + 1 {
             self.screen_buffer.push('█');
         } else {
             self.screen_buffer.push(' ');
         }
-        self.current_drawn = (self.current_drawn + 1) % 40;
     }
 }
 
