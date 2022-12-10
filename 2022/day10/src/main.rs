@@ -1,92 +1,118 @@
-#[derive(Debug)]
-enum Instruction {
+enum Instructions {
     Noop,
-    Addx(i64),
+    Addx(i32),
 }
 
-impl From<&str> for Instruction {
+impl From<&str> for Instructions {
     fn from(line: &str) -> Self {
         let line = line.split_whitespace().collect::<Vec<&str>>().join("");
         let (instruction, data) = line.split_at(4);
 
         match instruction {
             "noop" => Self::Noop,
-            "addx" => Self::Addx(data.parse::<i64>().unwrap()),
+            "addx" => Self::Addx(data.parse::<i32>().unwrap()),
             _ => panic!(),
         }
     }
 }
 
-trait Probe {
-    fn sample(&mut self, tick: u64, register: i64);
+trait OnClockTick {
+    fn sample(&mut self, tick: usize, register: i32);
 }
 
-struct CPUProbe {
-    register_state: Vec<i64>,
-    sample_points: Vec<u64>,
+struct CpuProbe {
+    register_state: Vec<i32>,
+    sampling_points: Vec<usize>,
 }
 
-impl CPUProbe {
-    fn with_sample_points(sample_points: Vec<u64>) -> Self {
-        CPUProbe {
-            register_state: vec![],
-            sample_points,
+impl CpuProbe {
+    fn with_sampling_points(sampling_points: Vec<usize>) -> Self {
+        CpuProbe {
+            register_state: Vec::new(),
+            sampling_points,
         }
     }
 
-    fn measure_signal_strength(&self) -> i64 {
+    fn total_signal_strength(&self) -> i32 {
         self.register_state
             .iter()
-            .zip(&self.sample_points)
-            .map(|pari| pari.0 * *pari.1 as i64)
+            .zip(&self.sampling_points)
+            .map(|pair| pair.0 * *pair.1 as i32)
             .sum()
     }
 }
 
-impl Probe for CPUProbe {
-    fn sample(&mut self, tick: u64, register: i64) {
-        if self.sample_points.contains(&tick) {
+impl OnClockTick for CpuProbe {
+    fn sample(&mut self, tick: usize, register: i32) {
+        if self.sampling_points.contains(&tick) {
             self.register_state.push(register);
         }
     }
 }
 
-struct CPU<'a, T> {
-    clock: u64,
-    regx: i64,
-    probes: Option<Vec<&'a mut T>>,
+struct Crt {
+    current_drawn: i32,
+    screen_buffer: Vec<char>,
 }
 
-impl<'a, T: Probe> CPU<'a, T> {
+impl Crt {
     fn new() -> Self {
-        CPU {
-            clock: 0,
-            regx: 1,
-            probes: None,
+        Crt {
+            current_drawn: 0,
+            screen_buffer: Vec::new(),
         }
     }
 
-    fn add_probe(&mut self, probe: &'a mut T) {
-        if let Some(probes) = &mut self.probes {
-            probes.push(probe);
+    fn render_image(&self) {
+        self.screen_buffer
+            .chunks(40)
+            .into_iter()
+            .for_each(|chunk| println!("{}", chunk.iter().collect::<String>()));
+    }
+}
+
+impl OnClockTick for Crt {
+    fn sample(&mut self, _: usize, register: i32) {
+        if [register - 1, register, register + 1].contains(&self.current_drawn) {
+            // This font is more readable than one suggested by AOC. :^)
+            self.screen_buffer.push('█');
         } else {
-            self.probes = Some(vec![probe]);
+            self.screen_buffer.push(' ');
         }
+        self.current_drawn = (self.current_drawn + 1) % 40;
+    }
+}
+
+struct Cpu<'a> {
+    clock: usize,
+    regx: i32,
+    devices: Vec<&'a mut dyn OnClockTick>,
+}
+
+impl<'a> Cpu<'a> {
+    fn new() -> Self {
+        Cpu {
+            clock: 0,
+            regx: 1,
+            devices: Vec::new(),
+        }
+    }
+
+    fn share_clock_with(&mut self, device: &'a mut dyn OnClockTick) {
+        self.devices.push(device);
     }
 
     fn tick(&mut self) {
         self.clock += 1;
-        if let Some(probes) = &mut self.probes {
-            probes
-                .iter_mut()
-                .for_each(|p| p.sample(self.clock, self.regx));
-        }
+        self.devices
+            .iter_mut()
+            .for_each(|d| d.sample(self.clock, self.regx));
     }
 
-    fn execute_instruction(&mut self, instruction: &Instruction) {
+    fn execute_instruction(&mut self, instruction: &Instructions) {
         match instruction {
-            Instruction::Noop => self.tick(),
-            Instruction::Addx(data) => {
+            Instructions::Noop => self.tick(),
+            Instructions::Addx(data) => {
                 self.tick();
                 self.tick();
                 self.regx += data;
@@ -96,13 +122,19 @@ impl<'a, T: Probe> CPU<'a, T> {
 }
 
 fn main() {
-    let mut cpu = CPU::new();
-    // (that is, during the 20th, 60th, 100th, 140th, 180th, and 220th cycles)
-    let mut cpu_probe = CPUProbe::with_sample_points(vec![20, 60, 100, 140, 180, 220]);
-    cpu.add_probe(&mut cpu_probe);
+    let mut cpu = Cpu::new();
+    let mut crt = Crt::new();
+    let mut cpu_probe = CpuProbe::with_sampling_points(vec![20, 60, 100, 140, 180, 220]);
+
+    cpu.share_clock_with(&mut crt);
+    cpu.share_clock_with(&mut cpu_probe);
+
     include_str!("../input").lines().for_each(|line| {
-        let instruction = Instruction::from(line);
+        let instruction = Instructions::from(line);
         cpu.execute_instruction(&instruction);
     });
-    println!("{:?}", cpu_probe.measure_signal_strength());
+
+    println!("Part1: {}", cpu_probe.total_signal_strength());
+    println!("Part2:");
+    crt.render_image();
 }
