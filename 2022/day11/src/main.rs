@@ -1,4 +1,5 @@
 use lazy_static::lazy_static;
+use num::integer::lcm;
 use regex::Regex;
 use std::collections::VecDeque;
 
@@ -45,25 +46,25 @@ struct Monkey {
 }
 
 impl Monkey {
-    fn inspect_and_throw(&mut self) -> Vec<Item> {
+    fn inspect_and_throw(&mut self, lcm: usize) -> Vec<Item> {
         let mut items = Vec::new();
         while !self.items.is_empty() {
             let item = self.items.pop_front().unwrap();
             let worry = match self.op {
-                Operations::Add(amt) => (item + amt) / 3,
-                Operations::Mul(amt) => (item * amt) / 3,
-                Operations::Sqr => (item * item) / 3,
+                Operations::Add(amt) => item + amt,
+                Operations::Mul(amt) => item * amt,
+                Operations::Sqr => item * item,
             };
 
             if worry % self.test_condition == 0 {
                 items.push(Item {
                     to: self.target_true,
-                    item: worry,
+                    item: worry % lcm,
                 });
             } else {
                 items.push(Item {
                     to: self.target_false,
-                    item: worry,
+                    item: worry % lcm,
                 });
             }
             self.inspected += 1;
@@ -127,17 +128,23 @@ fn main() {
             monkeys.push(Monkey::from(description));
         });
 
-    for _ in 0..20 {
+    let lowest_common_multiple = monkeys
+        .iter()
+        .map(|m| m.test_condition)
+        .reduce(lcm)
+        .unwrap();
+
+    for _ in 0..10000 {
         for monkey in 0..monkeys.len() {
-            let passed = monkeys[monkey].inspect_and_throw();
+            let passed = monkeys[monkey].inspect_and_throw(lowest_common_multiple);
             passed.iter().for_each(|item| {
                 monkeys[item.to].catch(item.item);
             })
         }
     }
+
     let mut inspected = monkeys.iter().map(|m| m.inspected).collect::<Vec<usize>>();
     inspected.sort_unstable();
     inspected.reverse();
-    println!("{:?}", inspected);
-    println!("{:?}", inspected[0] * inspected[1]);
+    println!("Part2: {}", inspected[0] * inspected[1]);
 }
