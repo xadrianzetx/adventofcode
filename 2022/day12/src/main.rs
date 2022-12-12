@@ -44,6 +44,7 @@ fn walk_back(steps: &Steps, finish: &(i32, i32)) -> Option<i32> {
 }
 
 fn main() {
+    // TODO(xadrianzetx) Refactor this mess.
     let mut start = (0, 0);
     let mut top = (0, 0);
     let mut start_points = Vec::new();
