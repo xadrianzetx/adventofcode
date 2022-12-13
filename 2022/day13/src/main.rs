@@ -86,6 +86,7 @@ fn part2(data: &str) {
     packets.push(serde_json::from_str::<Packet>("[[2]]").unwrap());
     packets.push(serde_json::from_str::<Packet>("[[6]]").unwrap());
 
+    // TODO(xadrianzetx) Implementing Ord will allow to just call packets.sort_unstable() :^)
     loop {
         let mut swapped = false;
         for i in 0..packets.len() - 1 {
