@@ -1,18 +1,28 @@
 use itertools::EitherOrBoth::{Both, Left, Right};
 use itertools::Itertools;
-use serde_json::Value;
+use serde::Deserialize;
 use std::cmp::Ordering;
 
-#[derive(PartialEq, Eq, Debug)]
+#[derive(PartialEq, Eq)]
 enum PacketOrdering {
     Ok,
     Wrong,
     Undefined,
 }
 
-fn compare(left: &Value, right: &Value) -> PacketOrdering {
+#[derive(Deserialize, Debug)]
+#[serde(untagged)]
+enum Packet {
+    Val(u8),
+    Arr(Vec<Packet>),
+}
+
+fn compare(left: &Packet, right: &Packet) -> PacketOrdering {
+    // TODO(xadrianzetx) Impl Ord
+    // https://github.com/timvisee/advent-of-code-2022/blob/master/day13b/src/main.rs
+    use Packet::*;
     match (left, right) {
-        (Value::Array(l), Value::Array(r)) => {
+        (Arr(l), Arr(r)) => {
             for lr in l.iter().zip_longest(r.iter()) {
                 let ord = match lr {
                     Left(_) => PacketOrdering::Wrong,
@@ -25,38 +35,26 @@ fn compare(left: &Value, right: &Value) -> PacketOrdering {
             }
             PacketOrdering::Undefined
         }
-        (Value::Number(l), Value::Number(r)) => match l.as_i64().cmp(&r.as_i64()) {
+        (Val(l), Val(r)) => match l.cmp(r) {
             Ordering::Less => PacketOrdering::Ok,
             Ordering::Greater => PacketOrdering::Wrong,
             Ordering::Equal => PacketOrdering::Undefined,
         },
-        (Value::Number(l), Value::Array(_)) => {
-            let x = serde_json::json!([l]);
-            compare(&x, right)
-        }
-        (Value::Array(_), Value::Number(r)) => {
-            let x = serde_json::json!([r]);
-            compare(left, &x)
-        }
-        _ => panic!(),
+        (Val(l), Arr(_)) => compare(&Arr(vec![Val(*l)]), right),
+        (Arr(_), Val(r)) => compare(left, &Arr(vec![Val(*r)])),
     }
 }
 
-fn is_divider_packet(packets: &Value) -> bool {
+fn is_divider_packet(packets: &Packet) -> bool {
+    use Packet::*;
     match packets {
-        Value::Number(n) => {
-            if let Some(a) = n.as_i64() {
-                return [2, 6].contains(&a);
-            }
-            false
-        }
-        Value::Array(a) => {
+        &Val(n) => [2, 6].contains(&n),
+        Arr(a) => {
             if a.is_empty() || a.len() > 1 {
                 return false;
             }
             is_divider_packet(&a[0])
         }
-        _ => panic!(),
     }
 }
 
@@ -67,8 +65,8 @@ fn part1(data: &str) {
         .filter_map(|(index, pair)| {
             let lr = pair
                 .split('\n')
-                .map(|row| serde_json::from_str(row).unwrap())
-                .collect::<Vec<Value>>();
+                .map(|row| serde_json::from_str::<Packet>(row).unwrap())
+                .collect::<Vec<Packet>>();
 
             match compare(&lr[0], &lr[1]) {
                 PacketOrdering::Ok => Some(index + 1),
@@ -80,13 +78,13 @@ fn part1(data: &str) {
 }
 
 fn part2(data: &str) {
-    let mut packets: Vec<Value> = Vec::new();
+    let mut packets: Vec<Packet> = Vec::new();
     data.lines().filter(|l| !l.is_empty()).for_each(|row| {
-        let packet = serde_json::from_str(row).unwrap();
+        let packet = serde_json::from_str::<Packet>(row).unwrap();
         packets.push(packet);
     });
-    packets.push(serde_json::from_str("[[2]]").unwrap());
-    packets.push(serde_json::from_str("[[6]]").unwrap());
+    packets.push(serde_json::from_str::<Packet>("[[2]]").unwrap());
+    packets.push(serde_json::from_str::<Packet>("[[6]]").unwrap());
 
     loop {
         let mut swapped = false;
