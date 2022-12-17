@@ -1,4 +1,3 @@
-use std::cmp::max;
 use std::collections::HashSet;
 
 #[derive(PartialEq, Debug, Clone, Copy)]
@@ -20,11 +19,11 @@ static ROCKS: &[Rocks] = &[
 
 struct Rock {
     rock_type: Rocks,
-    positions: Vec<(i32, i32)>,
+    positions: Vec<(i64, i64)>,
 }
 
 impl Rock {
-    fn from_height(typ_: &Rocks, height: i32) -> Self {
+    fn from_height(typ_: &Rocks, height: i64) -> Self {
         match typ_ {
             // ####
             Rocks::TypeA => {
@@ -108,7 +107,7 @@ impl Rock {
         }
     }
 
-    fn collides_with(&self, map: &HashSet<(i32, i32)>, move_: &char) -> bool {
+    fn collides_with(&self, settled: &HashSet<(i64, i64)>, move_: &char) -> bool {
         for pos in self.positions.iter() {
             let updated = match move_ {
                 '>' => (pos.0 + 1, pos.1),
@@ -117,12 +116,7 @@ impl Rock {
                 _ => panic!(),
             };
 
-            if updated.0 < 0 || updated.0 > 6 || updated.1 < 0 {
-                return true;
-            }
-
-            if map.contains(&updated) {
-                // println!("hit {:?}", updated);
+            if hits_wall(&updated) || settled.contains(&updated) {
                 return true;
             }
         }
@@ -140,7 +134,7 @@ impl Rock {
         }
     }
 
-    fn into_coordinates(self) -> Vec<(i32, i32)> {
+    fn into_coordinates(self) -> Vec<(i64, i64)> {
         self.positions
     }
 }
@@ -151,8 +145,8 @@ struct Cycler {
     allows_register: bool,
     shadow_top: i64,
     residual_iterations: i64,
-    // Next rock, next 10 moves as String, top value, iter
-    states: Vec<(Rocks, String, i32, i32)>,
+    // Next rock, next 10 moves as String, top value, iter.
+    states: Vec<(Rocks, String, i64, i64)>,
 }
 
 impl Cycler {
@@ -164,29 +158,28 @@ impl Cycler {
         }
     }
 
-    fn register(&mut self, rock: Rocks, moves: String, top: i32, iter: i32) {
+    fn register(&mut self, rock: Rocks, moves: String, top: i64, iter: i64) {
         if self.allows_register {
             self.states.push((rock, moves, top, iter));
         }
     }
 
-    fn check_cycle(&mut self, rock: &Rocks, moves: &String, top: i32, iter: i32) {
+    fn check_cycle(&mut self, rock: &Rocks, moves: &String, top: i64, iter: i64) {
         for state in self.states.iter() {
             if rock == &state.0 && moves == &state.1 && self.allows_register && iter > 2022 {
-                let num_full_cycles_to_go = (self.num_iter - iter as i64) / (iter - state.3) as i64;
+                let num_full_cycles_to_go = (self.num_iter - iter) / (iter - state.3);
                 let top_grows_during_cycle = top - state.2;
 
-                self.shadow_top = num_full_cycles_to_go * top_grows_during_cycle as i64;
-                self.residual_iterations =
-                    ((self.num_iter - iter as i64) % (iter - state.3) as i64) + iter as i64;
+                self.shadow_top = num_full_cycles_to_go * top_grows_during_cycle;
+                self.residual_iterations = ((self.num_iter - iter) % (iter - state.3)) + iter;
                 self.allows_register = false;
             }
         }
     }
 
-    fn check_residual_iteration(&self, iter: i32, top: i32) {
-        if iter as i64 == self.residual_iterations && !self.allows_register {
-            println!("Part2: {}", self.shadow_top + top as i64);
+    fn check_residual_iteration(&self, iter: i64, top: i64) {
+        if iter == self.residual_iterations && !self.allows_register {
+            println!("Part2: {}", self.shadow_top + top);
         }
     }
 }
@@ -200,16 +193,16 @@ fn encode_moves(moves: &[char], moveptr: &usize, n: usize) -> String {
     next_moves.iter().collect::<String>()
 }
 
-fn find_new_highest(map: &HashSet<(i32, i32)>) -> i32 {
-    let mut top = 0;
-    for elem in map.iter() {
-        top = max(top, elem.1);
-    }
-    top + 1
+fn find_new_highest(settled: &HashSet<(i64, i64)>) -> i64 {
+    settled.iter().map(|e| e.1).max().unwrap() + 1
+}
+
+fn hits_wall(element: &(i64, i64)) -> bool {
+    element.0 < 0 || element.0 > 6 || element.1 < 0
 }
 
 fn main() {
-    let dirs = include_str!("../input").chars().collect::<Vec<char>>();
+    let moves = include_str!("../input").chars().collect::<Vec<char>>();
     let mut moveptr = 0;
     let mut rockptr = 0;
     let mut top = 0;
@@ -218,21 +211,20 @@ fn main() {
 
     for i in 0..3000 {
         let mut rock = Rock::from_height(&ROCKS[rockptr], top);
-        let moves = encode_moves(&dirs, &moveptr, 1000);
-        cycler.check_cycle(&rock.rock_type, &moves, top, i);
-        cycler.register(rock.rock_type, moves, top, i);
+        let moves_ahead = encode_moves(&moves, &moveptr, 1000);
+
+        cycler.check_cycle(&rock.rock_type, &moves_ahead, top, i);
+        cycler.register(rock.rock_type, moves_ahead, top, i);
         cycler.check_residual_iteration(i, top);
 
         loop {
-            if !rock.collides_with(&settled, &dirs[moveptr]) {
-                rock.update_position(&dirs[moveptr]);
+            if !rock.collides_with(&settled, &moves[moveptr]) {
+                rock.update_position(&moves[moveptr]);
             }
-            moveptr = (moveptr + 1) % dirs.len();
+            moveptr = (moveptr + 1) % moves.len();
 
             if rock.collides_with(&settled, &'v') {
-                for pos in rock.into_coordinates() {
-                    settled.insert(pos);
-                }
+                settled.extend(rock.into_coordinates());
                 top = find_new_highest(&settled);
                 break;
             }
