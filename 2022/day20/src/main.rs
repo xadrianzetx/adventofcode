@@ -30,9 +30,11 @@ fn mix(values: Vec<Value>, n_iter: usize) -> i64 {
     }
 
     let zeropos = target.iter().position(|v| v.value == 0).unwrap();
-    target[(zeropos + 1000) % target.len()].value
-        + target[(zeropos + 2000) % target.len()].value
-        + target[(zeropos + 3000) % target.len()].value
+    [1000, 2000, 3000]
+        .iter()
+        .map(|v| target[(zeropos + v) % target.len()].clone())
+        .map(|v| v.value)
+        .sum()
 }
 
 fn main() {
