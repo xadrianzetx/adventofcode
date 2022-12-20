@@ -17,22 +17,21 @@ fn prepare_for_mixing(data: &str, key: i64) -> Vec<Value> {
         .collect::<Vec<Value>>()
 }
 
-fn mix(values: Vec<Value>, n_iter: usize) -> i64 {
-    let mut target = values.clone();
+fn mix(mut values: Vec<Value>, n_iter: usize) -> i64 {
+    let file_len = (values.len() as i64) - 1;
     for _ in 0..n_iter {
-        for offset in values.iter() {
-            let idx = target.iter().position(|v| v.index == offset.index).unwrap();
-            let val = target.remove(idx);
-            let tl = target.len() as i64;
-            let newidx = ((idx as i64 + offset.value % tl) + tl) % tl;
-            target.insert(newidx as usize, val);
+        for idx in 0..=file_len {
+            let curridx = values.iter().position(|v| v.index == idx as usize).unwrap();
+            let val = values.remove(curridx);
+            let newidx = ((curridx as i64 + val.value % file_len) + file_len) % file_len;
+            values.insert(newidx as usize, val);
         }
     }
 
-    let zeropos = target.iter().position(|v| v.value == 0).unwrap();
+    let zeropos = values.iter().position(|v| v.value == 0).unwrap();
     [1000, 2000, 3000]
         .iter()
-        .map(|v| target[(zeropos + v) % target.len()].clone())
+        .map(|v| values[(zeropos + v) % values.len()].clone())
         .map(|v| v.value)
         .sum()
 }
