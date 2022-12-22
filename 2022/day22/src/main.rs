@@ -1,10 +1,14 @@
 use std::collections::HashMap;
 
-#[derive(Debug)]
-enum Board {
+#[derive(Clone, PartialEq)]
+enum Element {
     Tile,
     Wall,
 }
+
+#[derive(Clone)]
+struct Map((i32, i32), Element);
+type Face = HashMap<(i32, i32), Map>;
 
 #[derive(Debug)]
 enum Path {
@@ -47,148 +51,98 @@ impl PathDescription {
     }
 }
 
-#[derive(Debug)]
-enum Directions {
-    North,
-    South,
-    East,
-    West,
-}
-
-#[derive(Debug)]
 struct Player {
     pos: (i32, i32),
-    facing: Directions,
+    face: usize,
+    facing: i32,
 }
 
 impl Player {
-    fn with_position(position: (i32, i32)) -> Self {
+    fn new() -> Self {
         Player {
-            pos: position,
-            facing: Directions::East,
+            pos: (0, 0),
+            face: 0,
+            facing: 0,
         }
     }
 
-    fn take_step(&mut self, map: &HashMap<(i32, i32), Board>) -> Option<()> {
-        let mut cand = match self.facing {
-            Directions::North => (self.pos.0 - 1, self.pos.1),
-            Directions::South => (self.pos.0 + 1, self.pos.1),
-            Directions::East => (self.pos.0, self.pos.1 + 1),
-            Directions::West => (self.pos.0, self.pos.1 - 1),
+    fn take_step(&mut self, faces: &[Face]) -> Option<()> {
+        let cand = match self.facing {
+            0 => (self.pos.0, self.pos.1 + 1),
+            1 => (self.pos.0 + 1, self.pos.1),
+            2 => (self.pos.0, self.pos.1 - 1),
+            3 => (self.pos.0 - 1, self.pos.1),
+            _ => panic!(),
         };
 
-        cand = find_valid_position(map, cand, &self.facing);
-        if let Some(Board::Wall) = map.get(&cand) {
+        let (cand_pos, cand_face, cand_facing) = remap(faces, cand, self.face, self.facing);
+        let cb = faces[cand_face].get(&cand_pos).unwrap();
+        if cb.1 == Element::Wall {
             return None;
         }
 
-        self.pos = cand;
+        self.pos = cand_pos;
+        self.face = cand_face;
+        self.facing = cand_facing;
         Some(())
     }
 
     fn update_facing(&mut self, turn: char) {
-        match self.facing {
-            Directions::North => {
-                if turn == 'L' {
-                    self.facing = Directions::West
-                } else {
-                    self.facing = Directions::East
-                }
-            }
-            Directions::South => {
-                if turn == 'L' {
-                    self.facing = Directions::East
-                } else {
-                    self.facing = Directions::West
-                }
-            }
-            Directions::East => {
-                if turn == 'L' {
-                    self.facing = Directions::North
-                } else {
-                    self.facing = Directions::South
-                }
-            }
-            Directions::West => {
-                if turn == 'L' {
-                    self.facing = Directions::South
-                } else {
-                    self.facing = Directions::North
-                }
-            }
-        }
-    }
-
-    fn score_facing(&self) -> i32 {
-        // Facing is 0 for right (>), 1 for down (v), 2 for left (<), and 3 for up (^).
-        match self.facing {
-            Directions::East => 0,
-            Directions::South => 1,
-            Directions::West => 2,
-            Directions::North => 3,
-        }
+        let update = match turn {
+            'L' => -1,
+            'R' => 1,
+            _ => panic!(),
+        };
+        self.facing = ((self.facing + update % 4) + 4) % 4;
     }
 }
 
-fn find_valid_position(
-    map: &HashMap<(i32, i32), Board>,
-    pos: (i32, i32),
-    facing: &Directions,
-) -> (i32, i32) {
-    if map.contains_key(&pos) {
-        return pos;
+fn remap(faces: &[Face], pos: (i32, i32), face: usize, facing: i32) -> ((i32, i32), usize, i32) {
+    if faces[face].contains_key(&pos) {
+        return (pos, face, facing);
     }
 
-    match facing {
-        Directions::North => {
-            let maxrow = map
-                .keys()
-                .filter_map(|k| if k.1 == pos.1 { Some(k.0) } else { None })
-                .max()
-                .unwrap();
-            (maxrow, pos.1)
-        }
-        Directions::South => {
-            let minrow = map
-                .keys()
-                .filter_map(|k| if k.1 == pos.1 { Some(k.0) } else { None })
-                .min()
-                .unwrap();
-            (minrow, pos.1)
-        }
-        Directions::East => {
-            let mincol = map
-                .keys()
-                .filter_map(|k| if k.0 == pos.0 { Some(k.1) } else { None })
-                .min()
-                .unwrap();
-            (pos.0, mincol)
-        }
-        Directions::West => {
-            let maxcol = map
-                .keys()
-                .filter_map(|k| if k.0 == pos.0 { Some(k.1) } else { None })
-                .max()
-                .unwrap();
-            (pos.0, maxcol)
-        }
+    // Wrapping rules LUT.
+    match (face, facing) {
+        (0, 3) => ((pos.1, 0), 5, 0),
+        (0, 1) => ((0, pos.1), 2, 1),
+        (0, 0) => ((pos.0, 0), 1, 0),
+        (0, 2) => ((49 - pos.0, 0), 3, 0),
+        (1, 3) => ((49, pos.1), 5, 3),
+        (1, 1) => ((pos.1, 49), 2, 2),
+        (1, 0) => ((49 - pos.0, 49), 4, 2),
+        (1, 2) => ((pos.0, 49), 0, 2),
+        (2, 3) => ((49, pos.1), 0, 3),
+        (2, 1) => ((0, pos.1), 4, 1),
+        (2, 0) => ((49, pos.0), 1, 3),
+        (2, 2) => ((0, pos.0), 3, 1),
+        (3, 3) => ((pos.1, 0), 2, 0),
+        (3, 1) => ((0, pos.1), 5, 1),
+        (3, 0) => ((pos.0, 0), 4, 0),
+        (3, 2) => ((49 - pos.0, 0), 0, 0),
+        (4, 3) => ((49, pos.1), 2, 3),
+        (4, 1) => ((pos.1, 49), 5, 2),
+        (4, 0) => ((49 - pos.0, 49), 1, 2),
+        (4, 2) => ((pos.0, 49), 3, 2),
+        (5, 3) => ((49, pos.1), 3, 3),
+        (5, 1) => ((0, pos.1), 1, 1),
+        (5, 0) => ((49, pos.0), 4, 3),
+        (5, 2) => ((0, pos.0), 0, 1),
+        _ => panic!(),
     }
 }
 
 fn main() {
-    let mut map = HashMap::new();
     let mut row = 1;
-    let mut leftmost = 0;
+    let mut faces: Vec<Face> = vec![HashMap::new(); 12];
     include_str!("../map").lines().for_each(|line| {
         for (col, chr) in line.chars().enumerate() {
+            let face = (3 * ((row - 1) / 50)) + (col / 50);
+            let face_coords = (((row - 1) % 50) as i32, (col % 50) as i32);
+            let map_coords = (row as i32, (col + 1) as i32);
             match chr {
-                '.' => {
-                    if row == 1 && leftmost == 0 {
-                        leftmost = col + 1;
-                    }
-                    map.insert((row, (col + 1) as i32), Board::Tile)
-                }
-                '#' => map.insert((row, (col + 1) as i32), Board::Wall),
+                '.' => faces[face].insert(face_coords, Map(map_coords, Element::Tile)),
+                '#' => faces[face].insert(face_coords, Map(map_coords, Element::Wall)),
                 ' ' => None,
                 _ => panic!(),
             };
@@ -196,13 +150,18 @@ fn main() {
         row += 1;
     });
 
-    let mut directions = PathDescription::from(include_str!("../input"));
-    let mut player = Player::with_position((1, leftmost as i32));
-    while let Some(p) = directions.next() {
+    faces = faces
+        .into_iter()
+        .filter(|f| !f.is_empty())
+        .collect::<Vec<Face>>();
+
+    let mut path = PathDescription::from(include_str!("../input"));
+    let mut player = Player::new();
+    while let Some(p) = path.next() {
         match p {
             Path::Move(steps) => {
                 for _ in 0..steps {
-                    let taken = player.take_step(&map);
+                    let taken = player.take_step(&faces);
                     if taken.is_none() {
                         break;
                     }
@@ -211,8 +170,8 @@ fn main() {
             Path::Turn(turn) => player.update_facing(turn),
         }
     }
-    println!(
-        "Part1: {}",
-        (1000 * player.pos.0) + (4 * player.pos.1) + player.score_facing()
-    );
+
+    let map_pos = faces[player.face].get(&player.pos).unwrap().0;
+    let ans = 1000 * map_pos.0 + 4 * map_pos.1 + player.facing;
+    println!("Part2: {}", ans);
 }
