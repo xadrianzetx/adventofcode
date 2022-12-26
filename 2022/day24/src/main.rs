@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 
-static OFFSETS: &[(i32, i32); 5] = &[(1, 0), (0, 1), (-1, 0), (0, -1), (0, 0)];
+static OFFSETS: &[(i32, i32); 4] = &[(1, 0), (0, 1), (-1, 0), (0, -1)];
 
 #[derive(PartialEq)]
 enum Directions {
@@ -132,7 +132,7 @@ fn main() {
         });
 
     // There are no optimizations applied to this BFS, so it's a bit slow.
-    // All 3 trips take about 5 seconds total in release mode.
+    // All 3 trips take about 3 seconds total in release mode.
     let exit = find_exit(&blizzards);
     let trip1 = traverse(&mut blizzards, (-1, 0), exit);
     let trip2 = traverse(&mut blizzards, (exit.0 + 1, exit.1), (0, 0));
