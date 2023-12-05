@@ -62,6 +62,23 @@ impl Map {
     }
 }
 
+fn find_lowest_seed(maps: &[Map], seeds: &[usize]) -> usize {
+    // Cheesing it at day 5! :^)
+    let mut current = 0;
+    loop {
+        let mut seed = current;
+        for m in maps.iter().rev() {
+            seed = m.find_source(seed);
+        }
+        for seedrng in seeds.chunks(2) {
+            if seedrng[0] <= seed && seed <= seedrng[1] + seedrng[0] {
+                return current;
+            }
+        }
+        current += 1;
+    }
+}
+
 fn main() {
     let seeds = vec![
         1778931867, 1436999653, 3684516104, 2759374, 1192793053, 358764985, 1698790056, 76369598,
@@ -102,20 +119,5 @@ fn main() {
         .min()
         .unwrap();
     println!("Part 1: {part1}");
-
-    // Cheesing it at day 5! :^)
-    let mut lowest = 100_000_000;
-    for i in (0..=100_000_000).rev() {
-        let mut src = i;
-        for m in maps.iter().rev() {
-            src = m.find_source(src);
-        }
-        for seedrng in seeds.chunks(2) {
-            if seedrng[0] <= src && src <= seedrng[1] + seedrng[0] {
-                lowest = i;
-                break;
-            }
-        }
-    }
-    println!("Part 2: {lowest}");
+    println!("Part 2: {}", find_lowest_seed(&maps, &seeds));
 }
