@@ -15,14 +15,21 @@ fn split_cols(pattern: &str) -> Vec<String> {
     buff
 }
 
+struct Midpoint(usize, bool);
+
+impl Midpoint {
+    fn new(value: usize, had_smudge: bool) -> Self {
+        Midpoint(value, had_smudge)
+    }
+}
+
 fn find_split(pattern: &[String], part2: bool) -> Option<usize> {
     let mut midpoints = Vec::new();
     for cand in 1..pattern.len() {
         let upper = &pattern[..cand];
         let lower = &pattern[cand..];
-        let (midpoint, had_smudge) = find_midpoint(upper, lower);
-        if let Some(midpoint) = midpoint {
-            midpoints.push((midpoint, had_smudge));
+        if let Some(midpoint) = find_midpoint(upper, lower) {
+            midpoints.push(midpoint);
         }
     }
 
@@ -33,20 +40,20 @@ fn find_split(pattern: &[String], part2: bool) -> Option<usize> {
         .next()
 }
 
-fn find_midpoint(upper: &[String], lower: &[String]) -> (Option<usize>, bool) {
-    let mut had_smuge = false;
+fn find_midpoint(upper: &[String], lower: &[String]) -> Option<Midpoint> {
+    let mut had_smudge = false;
     for (idx, up) in upper.iter().rev().enumerate() {
         if let Some(down) = lower.get(idx) {
             if cleaned_smudge(up, down) {
-                had_smuge = true;
+                had_smudge = true;
                 continue;
             }
             if up != down {
-                return (None, false);
+                return None;
             }
         }
     }
-    (Some(upper.len()), had_smuge)
+    Some(Midpoint::new(upper.len(), had_smudge))
 }
 
 fn cleaned_smudge(upper: &str, lower: &str) -> bool {
