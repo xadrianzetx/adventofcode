@@ -1,59 +1,100 @@
-use std::collections::VecDeque;
+use std::collections::HashMap;
 
-fn check_valid(config: &str, groups: &[usize], mut fill_queue: VecDeque<char>) -> usize {
-    let mut buff = String::new();
-    for char in config.chars() {
-        if char == '?' {
-            buff.push(fill_queue.pop_front().unwrap());
-        } else {
-            buff.push(char);
-        }
+struct Springs(HashMap<(usize, usize, usize), usize>);
+
+impl Springs {
+    fn new() -> Self {
+        Self(HashMap::new())
     }
 
-    let got = buff
-        .replace('.', " ")
-        .split_ascii_whitespace()
-        .into_iter()
-        .map(|grp| grp.len())
-        .collect::<Vec<usize>>();
-    if got == groups {
-        return 1;
-    } else {
-        return 0;
+    fn count_arrangements(&mut self, config: &str, groups: &[usize]) -> usize {
+        self.arrange(config, groups, 0, 0, 0)
+    }
+
+    fn arrange(
+        &mut self,
+        config: &str,
+        groups: &[usize],
+        cidx: usize,
+        gidx: usize,
+        group_len: usize,
+    ) -> usize {
+        if let Some(partial) = self.0.get(&(cidx, gidx, group_len)) {
+            return *partial;
+        }
+
+        if cidx == config.len() {
+            if gidx == groups.len() - 1 && (group_len == groups[gidx] || group_len == 0) {
+                return 1;
+            }
+            return 0;
+        }
+
+        if gidx > groups.len() - 1 || groups[gidx] < group_len {
+            return 0;
+        }
+
+        let current_char = config.chars().nth(cidx).unwrap();
+        let mut partial = 0;
+
+        if (current_char == '.' || current_char == '?')
+            && (group_len == 0 || group_len == groups[gidx])
+        {
+            partial += self.arrange(config, groups, cidx + 1, gidx, 0);
+        }
+
+        if current_char == '#' || current_char == '?' {
+            let mut new_gidx = gidx;
+            if group_len == 0 {
+                new_gidx += 1;
+            }
+            partial += self.arrange(config, groups, cidx + 1, new_gidx, group_len + 1);
+        }
+
+        // State representation inspired by jonathanpaulson.
+        // https://github.com/jonathanpaulson/AdventOfCode/blob/5ac1fc19f9eaa84e43ccad5e13778cd3a1919a92/2023/12.py#L16
+        self.0.insert((cidx, gidx, group_len), partial);
+        partial
     }
 }
 
-fn fill_voids(config: &str, groups: &[usize], free: usize, fill_queue: VecDeque<char>) -> usize {
-    if free == 0 {
-        return check_valid(config, groups, fill_queue);
-    }
+fn parse_springs(raw_spring: &str, repeat: usize) -> (String, Vec<usize>) {
+    let mut records = raw_spring.split(' ');
+    let config = vec![records.next().unwrap(); repeat].join("?");
 
-    let mut left_queue = fill_queue.clone();
-    left_queue.push_back('.');
-    let left = fill_voids(config, groups, free - 1, left_queue);
+    let mut groups = records
+        .next()
+        .unwrap()
+        .split(',')
+        .filter_map(|num| num.parse().ok())
+        .collect::<Vec<usize>>();
 
-    let mut right_queue = fill_queue.clone();
-    right_queue.push_back('#');
-    let right = fill_voids(config, groups, free - 1, right_queue);
+    groups = groups.repeat(repeat);
+    groups.insert(0, 0);
 
-    left + right
+    (config, groups)
 }
 
 fn main() {
-    let mut cnt = 0;
-    include_str!("../debug-input").lines().for_each(|line| {
-        let mut records = line.split(' ');
-        let config = records.next().unwrap();
-        let groups = records
-            .next()
-            .unwrap()
-            .split(',')
-            .filter_map(|num| num.parse().ok())
-            .collect::<Vec<usize>>();
-        // println!("{}, {:?}", config, groups);
-        let free = config.chars().filter(|char| char == &'?').count();
-        let ret = fill_voids(config, &groups, free, VecDeque::new());
-        cnt += ret;
-    });
-    println!("{cnt}");
+    let raw_springs = include_str!("../input").lines().collect::<Vec<&str>>();
+
+    let part1 = raw_springs
+        .iter()
+        .map(|raw_spring| {
+            let (config, groups) = parse_springs(raw_spring, 1);
+            let mut springs = Springs::new();
+            springs.count_arrangements(&config, &groups)
+        })
+        .sum::<usize>();
+    println!("Part 1: {part1}");
+
+    let part2 = raw_springs
+        .iter()
+        .map(|raw_spring| {
+            let (config, groups) = parse_springs(raw_spring, 5);
+            let mut springs = Springs::new();
+            springs.count_arrangements(&config, &groups)
+        })
+        .sum::<usize>();
+    println!("Part 2: {part2}");
 }
