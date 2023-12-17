@@ -3,6 +3,9 @@ use std::collections::{BinaryHeap, HashMap, HashSet};
 
 type Map = HashMap<(i32, i32), usize>;
 
+// Up, right, down, left
+const HEADINGS: &[(i32, i32)] = &[(-1, 0), (0, 1), (1, 0), (0, -1)];
+
 fn build_map(raw_map: &str) -> Map {
     let mut map = HashMap::new();
     for (row, line) in raw_map.lines().enumerate() {
@@ -17,26 +20,69 @@ fn build_map(raw_map: &str) -> Map {
 struct Node {
     coordinates: (i32, i32),
     heading: usize,
-    steps_left: usize,
-    steps_todo: usize,
-    cost_so_far: usize,
+    // Max number of steps before we're required to take a turn.
+    turn_after: usize,
+    // Min number of steps before we can change heading.
+    keep_for: usize,
+    total_cost: usize,
 }
 
 impl Node {
     fn new(
         coordinates: (i32, i32),
         heading: usize,
-        steps_left: usize,
-        steps_todo: usize,
-        cost_so_far: usize,
+        turn_after: usize,
+        keep_for: usize,
+        total_cost: usize,
     ) -> Self {
         Self {
             coordinates,
             heading,
-            steps_left,
-            steps_todo,
-            cost_so_far,
+            turn_after,
+            keep_for,
+            total_cost,
         }
+    }
+
+    fn get_valid_neighbors(&self, cost: usize, turn_after: usize, keep_for: usize) -> Vec<Self> {
+        let mut neighbors = Vec::new();
+
+        let row = self.coordinates.0;
+        let col = self.coordinates.1;
+
+        if self.turn_after > 0 {
+            neighbors.push(Self::new(
+                (
+                    row + HEADINGS[self.heading].0,
+                    col + HEADINGS[self.heading].1,
+                ),
+                self.heading,
+                self.turn_after - 1,
+                self.keep_for.saturating_sub(1),
+                self.total_cost + cost,
+            ));
+        }
+
+        if self.keep_for <= 1 {
+            let heading_a = (self.heading + 1) % HEADINGS.len();
+            neighbors.push(Self::new(
+                (row + HEADINGS[heading_a].0, col + HEADINGS[heading_a].1),
+                heading_a,
+                turn_after,
+                keep_for,
+                self.total_cost + cost,
+            ));
+
+            let heading_b = (self.heading + 3) % HEADINGS.len();
+            neighbors.push(Self::new(
+                (row + HEADINGS[heading_b].0, col + HEADINGS[heading_b].1),
+                heading_b,
+                turn_after,
+                keep_for,
+                self.total_cost + cost,
+            ));
+        }
+        neighbors
     }
 }
 
@@ -48,72 +94,31 @@ impl PartialOrd for Node {
 
 impl Ord for Node {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.cost_so_far.cmp(&other.cost_so_far)
+        self.total_cost.cmp(&other.total_cost)
     }
 }
 
-fn find_route(map: &mut Map, min_steps: usize, max_steps: usize) -> Option<usize> {
-    let mut queue = BinaryHeap::new();
-    let mut seen = HashSet::new();
-
+fn find_route(map: &Map, min_steps: usize, max_steps: usize) -> Option<usize> {
     let nrows = map.iter().filter(|elem| elem.0 .1 == 0).count();
     let ncols = map.iter().filter(|elem| elem.0 .0 == 0).count();
 
-    // Up, right, down, left
-    let headings = vec![(-1, 0), (0, 1), (1, 0), (0, -1)];
-
+    let mut seen = HashSet::new();
+    let mut queue = BinaryHeap::new();
     queue.push(Reverse(Node::new((1, 0), 2, max_steps - 1, min_steps, 0)));
     queue.push(Reverse(Node::new((0, 1), 1, max_steps - 1, min_steps, 0)));
 
     while let Some(Reverse(node)) = queue.pop() {
+        if seen.contains(&(node.coordinates, node.heading, node.turn_after)) {
+            continue;
+        }
+        seen.insert((node.coordinates, node.heading, node.turn_after));
+
         if let Some(cost) = map.get(&node.coordinates) {
-            if seen.contains(&(node.coordinates, node.heading, node.steps_left)) {
-                continue;
-            }
-            seen.insert((node.coordinates, node.heading, node.steps_left));
-
             if node.coordinates == ((nrows - 1) as i32, (ncols - 1) as i32) {
-                return Some(node.cost_so_far + cost);
+                return Some(node.total_cost + cost);
             }
-
-            let row = node.coordinates.0;
-            let col = node.coordinates.1;
-            let mut new_steps_todo = 0;
-            if node.steps_todo > 1 {
-                new_steps_todo = node.steps_todo - 1;
-            }
-
-            if node.steps_left > 0 {
-                queue.push(Reverse(Node::new(
-                    (
-                        row + headings[node.heading].0,
-                        col + headings[node.heading].1,
-                    ),
-                    node.heading,
-                    node.steps_left - 1,
-                    new_steps_todo,
-                    node.cost_so_far + cost,
-                )));
-            }
-
-            if new_steps_todo == 0 {
-                let heading_a = (node.heading + 1) % headings.len();
-                queue.push(Reverse(Node::new(
-                    (row + headings[heading_a].0, col + headings[heading_a].1),
-                    heading_a,
-                    max_steps - 1,
-                    min_steps,
-                    node.cost_so_far + cost,
-                )));
-
-                let heading_b = (node.heading + 3) % headings.len();
-                queue.push(Reverse(Node::new(
-                    (row + headings[heading_b].0, col + headings[heading_b].1),
-                    heading_b,
-                    max_steps - 1,
-                    min_steps,
-                    node.cost_so_far + cost,
-                )));
+            for neighnor in node.get_valid_neighbors(*cost, max_steps - 1, min_steps) {
+                queue.push(Reverse(neighnor));
             }
         }
     }
@@ -123,8 +128,8 @@ fn find_route(map: &mut Map, min_steps: usize, max_steps: usize) -> Option<usize
 
 fn main() {
     let raw_map = include_str!("../input");
-    let mut map = build_map(raw_map);
+    let map = build_map(raw_map);
 
-    println!("Part 1: {}", find_route(&mut map, 0, 3).unwrap());
-    println!("Part 2: {}", find_route(&mut map, 4, 10).unwrap());
+    println!("Part 1: {}", find_route(&map, 0, 3).unwrap());
+    println!("Part 2: {}", find_route(&map, 4, 10).unwrap());
 }
