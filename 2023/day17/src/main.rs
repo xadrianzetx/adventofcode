@@ -117,8 +117,8 @@ fn find_route(map: &Map, min_steps: usize, max_steps: usize) -> Option<usize> {
             if node.coordinates == ((nrows - 1) as i32, (ncols - 1) as i32) {
                 return Some(node.total_cost + cost);
             }
-            for neighnor in node.get_valid_neighbors(*cost, max_steps - 1, min_steps) {
-                queue.push(Reverse(neighnor));
+            for neighbor in node.get_valid_neighbors(*cost, max_steps - 1, min_steps) {
+                queue.push(Reverse(neighbor));
             }
         }
     }
