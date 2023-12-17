@@ -13,18 +13,10 @@ fn build_map(raw_map: &str) -> Map {
     map
 }
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
-enum Heading {
-    Up,
-    Down,
-    Left,
-    Right,
-}
-
 #[derive(Debug, PartialEq, Eq, Hash)]
 struct Node {
     coordinates: (i32, i32),
-    heading: Heading,
+    heading: usize,
     steps_left: usize,
     steps_todo: usize,
     cost_so_far: usize,
@@ -33,7 +25,7 @@ struct Node {
 impl Node {
     fn new(
         coordinates: (i32, i32),
-        heading: Heading,
+        heading: usize,
         steps_left: usize,
         steps_todo: usize,
         cost_so_far: usize,
@@ -60,27 +52,18 @@ impl Ord for Node {
     }
 }
 
-fn find_route(map: &mut Map, min_steps: usize, max_steps: usize) -> usize {
+fn find_route(map: &mut Map, min_steps: usize, max_steps: usize) -> Option<usize> {
     let mut queue = BinaryHeap::new();
     let mut seen = HashSet::new();
 
     let nrows = map.iter().filter(|elem| elem.0 .1 == 0).count();
     let ncols = map.iter().filter(|elem| elem.0 .0 == 0).count();
 
-    queue.push(Reverse(Node::new(
-        (1, 0),
-        Heading::Down,
-        max_steps - 1,
-        min_steps,
-        0,
-    )));
-    queue.push(Reverse(Node::new(
-        (0, 1),
-        Heading::Right,
-        max_steps - 1,
-        min_steps,
-        0,
-    )));
+    // Up, right, down, left
+    let headings = vec![(-1, 0), (0, 1), (1, 0), (0, -1)];
+
+    queue.push(Reverse(Node::new((1, 0), 2, max_steps - 1, min_steps, 0)));
+    queue.push(Reverse(Node::new((0, 1), 1, max_steps - 1, min_steps, 0)));
 
     while let Some(Reverse(node)) = queue.pop() {
         if let Some(cost) = map.get(&node.coordinates) {
@@ -90,7 +73,7 @@ fn find_route(map: &mut Map, min_steps: usize, max_steps: usize) -> usize {
             seen.insert((node.coordinates, node.heading, node.steps_left));
 
             if node.coordinates == ((nrows - 1) as i32, (ncols - 1) as i32) {
-                return node.cost_so_far + cost;
+                return Some(node.cost_so_far + cost);
             }
 
             let row = node.coordinates.0;
@@ -100,125 +83,48 @@ fn find_route(map: &mut Map, min_steps: usize, max_steps: usize) -> usize {
                 new_steps_todo = node.steps_todo - 1;
             }
 
-            match node.heading {
-                Heading::Up => {
-                    if node.steps_left > 0 {
-                        queue.push(Reverse(Node::new(
-                            (row - 1, col),
-                            node.heading,
-                            node.steps_left - 1,
-                            new_steps_todo,
-                            node.cost_so_far + cost,
-                        )));
-                    }
-                    if new_steps_todo == 0 {
-                        queue.push(Reverse(Node::new(
-                            (row, col + 1),
-                            Heading::Right,
-                            max_steps - 1,
-                            min_steps,
-                            node.cost_so_far + cost,
-                        )));
-                        queue.push(Reverse(Node::new(
-                            (row, col - 1),
-                            Heading::Left,
-                            max_steps - 1,
-                            min_steps,
-                            node.cost_so_far + cost,
-                        )));
-                    }
-                }
-                Heading::Down => {
-                    if node.steps_left > 0 {
-                        queue.push(Reverse(Node::new(
-                            (row + 1, col),
-                            node.heading,
-                            node.steps_left - 1,
-                            new_steps_todo,
-                            node.cost_so_far + cost,
-                        )));
-                    }
-                    if new_steps_todo == 0 {
-                        queue.push(Reverse(Node::new(
-                            (row, col + 1),
-                            Heading::Right,
-                            max_steps - 1,
-                            min_steps,
-                            node.cost_so_far + cost,
-                        )));
-                        queue.push(Reverse(Node::new(
-                            (row, col - 1),
-                            Heading::Left,
-                            max_steps - 1,
-                            min_steps,
-                            node.cost_so_far + cost,
-                        )));
-                    }
-                }
-                Heading::Left => {
-                    if node.steps_left > 0 {
-                        queue.push(Reverse(Node::new(
-                            (row, col - 1),
-                            node.heading,
-                            node.steps_left - 1,
-                            new_steps_todo,
-                            node.cost_so_far + cost,
-                        )));
-                    }
-                    if new_steps_todo == 0 {
-                        queue.push(Reverse(Node::new(
-                            (row + 1, col),
-                            Heading::Down,
-                            max_steps - 1,
-                            min_steps,
-                            node.cost_so_far + cost,
-                        )));
-                        queue.push(Reverse(Node::new(
-                            (row - 1, col),
-                            Heading::Up,
-                            max_steps - 1,
-                            min_steps,
-                            node.cost_so_far + cost,
-                        )));
-                    }
-                }
-                Heading::Right => {
-                    if node.steps_left > 0 {
-                        queue.push(Reverse(Node::new(
-                            (row, col + 1),
-                            node.heading,
-                            node.steps_left - 1,
-                            new_steps_todo,
-                            node.cost_so_far + cost,
-                        )));
-                    }
-                    if new_steps_todo == 0 {
-                        queue.push(Reverse(Node::new(
-                            (row + 1, col),
-                            Heading::Down,
-                            max_steps - 1,
-                            min_steps,
-                            node.cost_so_far + cost,
-                        )));
-                        queue.push(Reverse(Node::new(
-                            (row - 1, col),
-                            Heading::Up,
-                            max_steps - 1,
-                            min_steps,
-                            node.cost_so_far + cost,
-                        )));
-                    }
-                }
+            if node.steps_left > 0 {
+                queue.push(Reverse(Node::new(
+                    (
+                        row + headings[node.heading].0,
+                        col + headings[node.heading].1,
+                    ),
+                    node.heading,
+                    node.steps_left - 1,
+                    new_steps_todo,
+                    node.cost_so_far + cost,
+                )));
+            }
+
+            if new_steps_todo == 0 {
+                let heading_a = (node.heading + 1) % headings.len();
+                queue.push(Reverse(Node::new(
+                    (row + headings[heading_a].0, col + headings[heading_a].1),
+                    heading_a,
+                    max_steps - 1,
+                    min_steps,
+                    node.cost_so_far + cost,
+                )));
+
+                let heading_b = (node.heading + 3) % headings.len();
+                queue.push(Reverse(Node::new(
+                    (row + headings[heading_b].0, col + headings[heading_b].1),
+                    heading_b,
+                    max_steps - 1,
+                    min_steps,
+                    node.cost_so_far + cost,
+                )));
             }
         }
     }
-    0
+
+    None
 }
 
 fn main() {
     let raw_map = include_str!("../input");
     let mut map = build_map(raw_map);
 
-    println!("Part 1: {}", find_route(&mut map, 0, 3));
-    println!("Part 2: {}", find_route(&mut map, 4, 10));
+    println!("Part 1: {}", find_route(&mut map, 0, 3).unwrap());
+    println!("Part 2: {}", find_route(&mut map, 4, 10).unwrap());
 }
