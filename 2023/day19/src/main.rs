@@ -84,7 +84,7 @@ impl From<&str> for Rule {
 
 impl Rule {
     fn matched(&self, part: &mut Part) -> bool {
-        let matched = match self.category {
+        match self.category {
             Category::X => match self.order {
                 Order::Greater => part.x > self.value,
                 Order::Less => part.x < self.value,
@@ -101,12 +101,7 @@ impl Rule {
                 Order::Greater => part.s > self.value,
                 Order::Less => part.s < self.value,
             },
-        };
-
-        if matched {
-            part.status = self.outcome.clone();
         }
-        matched
     }
 
     fn probe(&self, probe: &mut Probe) -> Probe {
@@ -179,17 +174,14 @@ impl Workflow {
     }
 
     fn inspect(&self, part: &mut Part) {
-        let mut matched = false;
         for rule in &self.rules {
             if rule.matched(part) {
-                matched = true;
-                break;
+                part.status = rule.outcome.clone();
+                return;
             }
         }
 
-        if !matched {
-            part.status = self.ends_with.clone();
-        }
+        part.status = self.ends_with.clone();
     }
 
     fn probe(&self, mut probe: Probe) -> Vec<Probe> {
