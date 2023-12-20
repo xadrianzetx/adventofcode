@@ -14,7 +14,11 @@ struct Pulse {
 
 impl Pulse {
     fn new(sender: String, receiver: String, high: bool) -> Self {
-        Self { sender, receiver, high }
+        Self {
+            sender,
+            receiver,
+            high,
+        }
     }
 }
 
@@ -22,7 +26,6 @@ trait Device: Debug {
     fn recv(&mut self, pulse: &Pulse) -> Option<Vec<Pulse>>;
     fn declare_as_source(&self, _: &mut HashMap<String, Vec<String>>) {}
     fn set_sources(&mut self, _: &HashMap<String, Vec<String>>) {}
-    fn dbg(&self);
 }
 
 #[derive(Debug)]
@@ -57,7 +60,11 @@ impl Device for FlipFlop {
             self.high = !self.high;
             let mut pulses = Vec::new();
             for dest in &self.destinations {
-                pulses.push(Pulse::new(self.name.to_string(), dest.to_string(), self.high));
+                pulses.push(Pulse::new(
+                    self.name.to_string(),
+                    dest.to_string(),
+                    self.high,
+                ));
             }
             return Some(pulses);
         }
@@ -71,10 +78,6 @@ impl Device for FlipFlop {
                 .and_modify(|e| e.push(self.name.clone()))
                 .or_insert(vec![self.name.clone()]);
         }
-    }
-
-    fn dbg(&self) {
-        print!("{}: {}, ", self.name, self.high as usize);
     }
 }
 
@@ -110,7 +113,7 @@ impl Device for Conjunction {
         if let Some(high) = self.memory.get_mut(&pulse.sender) {
             *high = pulse.high;
         }
-        
+
         let pulse = !self.memory.values().all(|v| *v);
         let mut pulses = Vec::new();
         for dest in &self.destinations {
@@ -134,14 +137,6 @@ impl Device for Conjunction {
                 self.memory.insert(src.to_string(), false);
             }
         }
-    }
-
-    fn dbg(&self) {
-        let mut dbgmem = HashMap::new();
-        for (k, v) in &self.memory {
-            dbgmem.insert(k, *v as usize);
-        }
-        print!("{}: {:?}, ", self.name, dbgmem);
     }
 }
 
@@ -172,13 +167,13 @@ impl Device for Broadcaster {
     fn recv(&mut self, pulse: &Pulse) -> Option<Vec<Pulse>> {
         let mut pulses = Vec::new();
         for dest in &self.destinations {
-            pulses.push(Pulse::new(self.name.to_string(), dest.to_string(), pulse.high));
+            pulses.push(Pulse::new(
+                self.name.to_string(),
+                dest.to_string(),
+                pulse.high,
+            ));
         }
         Some(pulses)
-    }
-
-    fn dbg(&self) {
-        
     }
 }
 
@@ -212,7 +207,7 @@ fn build_circuit(raw_circuit: &str) -> Devices {
 #[derive(Debug, Default)]
 struct PulseCounter {
     high: usize,
-    low: usize
+    low: usize,
 }
 
 impl PulseCounter {
@@ -224,23 +219,84 @@ impl PulseCounter {
         }
     }
 
-    fn add(&mut self, other: &PulseCounter) {
-        self.high += other.high;
-        self.low += other.low;
-    }
-
     fn summary(&self) -> usize {
         self.high * self.low
     }
 }
 
-fn push_the_button(devices: &mut Devices) -> PulseCounter {
-    let mut pulse_counter = PulseCounter::default();
+#[derive(Debug)]
+struct CycleCouter {
+    counter: usize,
+    cycle_lengths: HashMap<String, usize>,
+}
+
+impl CycleCouter {
+    fn new() -> Self {
+        let cycle_lengths = HashMap::new();
+        CycleCouter {
+            counter: 1,
+            cycle_lengths,
+        }
+    }
+
+    fn increment(&mut self) {
+        self.counter += 1;
+    }
+
+    fn register(&mut self, pulse: &Pulse) {
+        // Search for cycles in tj's gates.
+        // tj -> rx
+        // tj: {"kk": 0, "sk": 0, "vt": 0, "xc": 0}
+        if pulse.receiver == "tj" && pulse.high {
+            self.cycle_lengths
+                .insert(pulse.sender.clone(), self.counter);
+        }
+    }
+
+    fn is_full(&self) -> bool {
+        self.cycle_lengths.len() == 4
+    }
+
+    fn get_cycle_length(&self) -> usize {
+        let lengths = self.cycle_lengths.values().copied().collect::<Vec<usize>>();
+        lcm(&lengths)
+    }
+}
+
+// Again, too lazy to write these, so credit where credit's due.
+// https://github.com/TheAlgorithms/Rust/blob/7d2aa9e8be79cd23c36aa99cbfa66b520b132035/src/math/lcm_of_n_numbers.rs
+fn lcm(nums: &[usize]) -> usize {
+    if nums.len() == 1 {
+        return nums[0];
+    }
+    let a = nums[0];
+    let b = lcm(&nums[1..]);
+    a * b / gcd(a, b)
+}
+
+fn gcd(a: usize, b: usize) -> usize {
+    if b == 0 {
+        return a;
+    }
+    gcd(b, a % b)
+}
+
+fn push_the_button(
+    devices: &mut Devices,
+    pulse_counter: &mut PulseCounter,
+    cycle_counter: &mut CycleCouter,
+) {
     let mut bus = VecDeque::new();
-    bus.push_back(Pulse::new("button".to_string(), "broadcaster".to_string(), false));
+    bus.push_back(Pulse::new(
+        "button".to_string(),
+        "broadcaster".to_string(),
+        false,
+    ));
 
     while let Some(pulse) = bus.pop_front() {
         pulse_counter.count_pulse(&pulse);
+        cycle_counter.register(&pulse);
+
         if let Some(device) = devices.get_mut(&pulse.receiver) {
             if let Some(new_pulses) = device.as_mut().recv(&pulse) {
                 for p in new_pulses {
@@ -249,34 +305,31 @@ fn push_the_button(devices: &mut Devices) -> PulseCounter {
             }
         }
     }
-
-    pulse_counter
 }
 
-fn mash_the_button(devices: &mut Devices) -> PulseCounter {
+fn mash_the_button(devices: &mut Devices) {
     let mut pulse_counter = PulseCounter::default();
-    for _ in 0..1000 {
-        pulse_counter.add(&push_the_button(devices));
-        // println!("after {}", i + 1);
-        // for d in devices.values() {
-        //     d.as_ref().dbg();
-        // }
-        // println!();
-        // println!("#############");
+    let mut cycle_counter = CycleCouter::new();
+
+    let mut step = 1;
+    loop {
+        push_the_button(devices, &mut pulse_counter, &mut cycle_counter);
+        if step == 1000 {
+            println!("Part 1: {}", pulse_counter.summary());
+        }
+
+        if cycle_counter.is_full() {
+            println!("Part 2: {}", cycle_counter.get_cycle_length());
+            break;
+        }
+
+        cycle_counter.increment();
+        step += 1;
     }
-    pulse_counter
 }
 
 fn main() {
     let raw_circuit = include_str!("../input");
-    // println!("{raw_circuit}");
     let mut devices = build_circuit(raw_circuit);
-    // println!("default");
-    // println!("{devices:?}");
-    // for d in devices.values() {
-    //     d.as_ref().dbg();
-    // }
-    // println!();
-    // println!("#########");
-    println!("{}", mash_the_button(&mut devices).summary());
+    mash_the_button(&mut devices);
 }
