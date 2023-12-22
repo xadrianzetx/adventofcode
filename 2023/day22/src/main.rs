@@ -1,4 +1,4 @@
-use std::collections::{HashSet, VecDeque};
+use std::collections::HashSet;
 
 type BrickCoords = HashSet<((usize, usize, usize), (usize, usize, usize))>;
 
@@ -37,11 +37,10 @@ impl From<&str> for Brick {
 
 impl Brick {
     fn collides_with(&self, other: &Brick) -> bool {
-        let this_x: HashSet<usize> = HashSet::from_iter(self.c0.0..=self.c1.0);
-        let this_y: HashSet<usize> = HashSet::from_iter(self.c0.1..=self.c1.1);
-        let other_x: HashSet<usize> = HashSet::from_iter(other.c0.0..=other.c1.0);
-        let other_y: HashSet<usize> = HashSet::from_iter(other.c0.1..=other.c1.1);
-        this_x.intersection(&other_x).count() > 0 && this_y.intersection(&other_y).count() > 0
+        !(self.c0.0 > other.c1.0
+            || self.c1.0 < other.c0.0
+            || self.c0.1 > other.c1.1
+            || self.c1.1 < other.c0.1)
     }
 
     fn move_down(&mut self) {
@@ -64,8 +63,7 @@ impl Brick {
 
 fn settle(bricks: Vec<Brick>) -> Vec<Brick> {
     let mut settled: Vec<Brick> = Vec::new();
-    let mut to_settle = VecDeque::from_iter(bricks.into_iter());
-    while let Some(mut brick) = to_settle.pop_front() {
+    for mut brick in bricks.into_iter() {
         while !brick.has_support() {
             if brick.on_the_floor() {
                 break;
@@ -91,26 +89,23 @@ fn settle(bricks: Vec<Brick>) -> Vec<Brick> {
     settled
 }
 
-fn get_supporting(bricks: &[Brick]) -> BrickCoords {
+fn get_single_supporting(bricks: &[Brick]) -> BrickCoords {
     let mut required = HashSet::new();
-    for brick in bricks.iter().rev() {
+    for brick in bricks.iter() {
         if brick.supported_by.len() == 1 {
-            for support in &brick.supported_by {
-                required.insert(*support);
-            }
+            required.extend(&brick.supported_by);
         }
     }
     required
 }
 
-fn count_removable(bricks: &Vec<Brick>) -> usize {
-    bricks.len() - get_supporting(bricks).len()
+fn count_removable(bricks: &[Brick]) -> usize {
+    bricks.len() - get_single_supporting(bricks).len()
 }
 
-
-fn count_falling(bricks: &Vec<Brick>) -> usize {
+fn count_falling(bricks: &[Brick]) -> usize {
     let mut all_falling = 0;
-    for support in get_supporting(bricks) {
+    for support in get_single_supporting(bricks) {
         let mut falling = HashSet::new();
         falling.insert(support);
 
