@@ -91,24 +91,6 @@ fn settle(bricks: Vec<Brick>) -> Vec<Brick> {
     settled
 }
 
-fn count_removable(bricks: &Vec<Brick>) -> usize {
-    let mut removable = HashSet::new();
-    for brick in bricks {
-        removable.insert((brick.c0, brick.c1));
-    }
-
-    for brick in bricks.iter().rev() {
-        if brick.supported_by.len() == 1 {
-            for support in &brick.supported_by {
-                if removable.contains(support) {
-                    removable.remove(support);
-                }
-            }
-        }
-    }
-    removable.len()
-}
-
 fn get_supporting(bricks: &[Brick]) -> BrickCoords {
     let mut required = HashSet::new();
     for brick in bricks.iter().rev() {
@@ -120,6 +102,11 @@ fn get_supporting(bricks: &[Brick]) -> BrickCoords {
     }
     required
 }
+
+fn count_removable(bricks: &Vec<Brick>) -> usize {
+    bricks.len() - get_supporting(bricks).len()
+}
+
 
 fn count_falling(bricks: &Vec<Brick>) -> usize {
     let mut all_falling = 0;
