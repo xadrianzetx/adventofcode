@@ -1,10 +1,14 @@
-#[derive(Debug)]
-struct Cpu {
-    a: usize,
-    b: usize,
-    c: usize,
-    ptr: usize,
-    charbuff: Vec<String>,
+#[derive(Default)]
+struct Interpreter {
+    // General purpose registers.
+    ra: usize,
+    rb: usize,
+    rc: usize,
+    // Program counter.
+    pc: usize,
+    // Two extra registers to hold program output and its magnitude.
+    rd: usize,
+    re: u32,
 }
 
 enum Instruction {
@@ -34,20 +38,28 @@ impl Instruction {
     }
 }
 
-impl Cpu {
+macro_rules! rdiv {
+    ($fun:ident, $register:ident) => {
+        fn $fun(&mut self, operand: usize) {
+            self.$register = self.ra / 2_usize.pow(operand as u32);
+            self.advance();
+        }
+    };
+}
+
+impl Interpreter {
     fn new(a: usize, b: usize, c: usize) -> Self {
         Self {
-            a,
-            b,
-            c,
-            ptr: 0,
-            charbuff: Vec::new(),
+            ra: a,
+            rb: b,
+            rc: c,
+            ..Default::default()
         }
     }
 
     fn run_program(&mut self, program: &[usize]) {
         loop {
-            if self.ptr >= program.len() {
+            if self.pc >= program.len() {
                 break;
             }
 
@@ -57,8 +69,8 @@ impl Cpu {
     }
 
     fn decode_instruction(&mut self, program: &[usize]) -> Instruction {
-        let opcode = program[self.ptr];
-        let operand = program[self.ptr + 1];
+        let opcode = program[self.pc];
+        let operand = program[self.pc + 1];
         Instruction::from_opcode_with_operand(opcode, operand)
     }
 
@@ -68,94 +80,102 @@ impl Cpu {
         }
 
         match operand {
-            4 => self.a,
-            5 => self.b,
-            6 => self.c,
+            4 => self.ra,
+            5 => self.rb,
+            6 => self.rc,
             _ => unreachable!(),
         }
-    }
-
-    fn inc_ptr(&mut self) {
-        self.ptr += 2;
     }
 
     fn execute_instruction(&mut self, instruction: Instruction) {
         use Instruction::*;
 
         match instruction {
-            Adv(operand) => {
-                let value = self.decode_combo_operand(operand);
-                self.a /= 2_usize.pow(value as u32);
-                self.inc_ptr();
-            }
-            Bxl(operand) => {
-                self.b ^= operand;
-                self.inc_ptr();
-            }
-            Bst(operand) => {
-                let value = self.decode_combo_operand(operand);
-                self.b = value % 8;
-                self.inc_ptr();
-            }
-            Jnz(operand) => {
-                if self.a == 0 {
-                    self.inc_ptr();
-                } else {
-                    self.ptr = operand;
-                }
-            }
-            Bxc => {
-                self.b ^= self.c;
-                self.inc_ptr();
-            }
-            Out(operand) => {
-                let value = self.decode_combo_operand(operand);
-                self.charbuff.push((value % 8).to_string());
-                self.inc_ptr();
-            }
-            Bdv(operand) => {
-                let value = self.decode_combo_operand(operand);
-                self.b = self.a / 2_usize.pow(value as u32);
-                self.inc_ptr();
-            }
-            Cdv(operand) => {
-                let value = self.decode_combo_operand(operand);
-                self.c = self.a / 2_usize.pow(value as u32);
-                self.inc_ptr();
-            }
+            Adv(operand) => self.adv(self.decode_combo_operand(operand)),
+            Bxl(operand) => self.bxl(operand),
+            Bst(operand) => self.bst(self.decode_combo_operand(operand)),
+            Jnz(operand) => self.jnz(operand),
+            Bxc => self.bxc(),
+            Out(operand) => self.out(self.decode_combo_operand(operand)),
+            Bdv(operand) => self.bdv(self.decode_combo_operand(operand)),
+            Cdv(operand) => self.cdv(self.decode_combo_operand(operand)),
         };
     }
 
-    fn flush(&self) -> String {
-        self.charbuff.join(",")
+    fn advance(&mut self) {
+        self.pc += 2;
     }
 
-    fn flush_no_sep(&self) -> String {
-        self.charbuff.join("")
+    rdiv!(adv, ra);
+    rdiv!(bdv, rb);
+    rdiv!(cdv, rc);
+
+    fn bxl(&mut self, operand: usize) {
+        self.rb ^= operand;
+        self.advance();
+    }
+
+    fn bst(&mut self, operand: usize) {
+        self.rb = operand % 8;
+        self.advance();
+    }
+
+    fn jnz(&mut self, operand: usize) {
+        if self.ra == 0 {
+            self.advance();
+        } else {
+            self.pc = operand;
+        }
+    }
+
+    fn bxc(&mut self) {
+        self.rb ^= self.rc;
+        self.advance();
+    }
+
+    fn out(&mut self, operand: usize) {
+        self.rd += (operand % 8) * (10_usize.pow(self.re));
+        self.re += 1;
+        self.advance();
+    }
+
+    fn flush(&self) -> String {
+        self.rd
+            .to_string()
+            .chars()
+            .rev()
+            .map(|c| c.to_string())
+            .collect::<Vec<String>>()
+            .join(",")
+    }
+
+    #[inline]
+    fn iflush(&self) -> usize {
+        self.rd
     }
 }
 
 fn main() {
     let program = [2, 4, 1, 1, 7, 5, 4, 7, 1, 4, 0, 3, 5, 5, 3, 0];
-    let mut cpu = Cpu::new(30553366, 0, 0);
-    cpu.run_program(&program);
-    let part_1 = cpu.flush();
+    let mut interpreter = Interpreter::new(30553366, 0, 0);
+    interpreter.run_program(&program);
+    let part_1 = interpreter.flush();
     println!("Part 1: {part_1}");
 
     // My Chronospatial Computer "assembly" decompiles to following pseudocode:
     //
-    // // loop {
-    // 	b = a % 8; 		// b is set to 0..=7
-    // 	b = b ^ 1; 		// lowest b bit is flipped
-    // 	c = a / 2^b; 	// a divided by 2^(0..=7)
-    // 	b = b ^ c; 		// b xored with some number dependent on a
-    // 	b = b ^ 4; 		// third bit from right in b is flipped
-    // 	a = a / 8; 		// div a by 8 to go to next iter
+    //loop {
+    // 	b = a % 8;      // b is set to 0..=7
+    // 	b = b ^ 1;      // lowest b bit is flipped
+    // 	c = a / 2**b;   // a divided by 2**(0..=7)
+    // 	b = b ^ c;      // b xored with some number dependent on a
+    // 	b = b ^ 4;      // third bit from right in b is flipped
+    // 	a = a / 8;      // div a by 8 to go to next iter
     // 	print(b % 8);   // b truncated to range 0..=7 and printed
     // 	if a == 0 {
     // 		break;
     // 	}
-    // }
+    //}
     //
     // This basically means that we can try matching the program digit by digit (starting from the last one)
     // by just multiplying previous correct reg a state by 8 and then searching a small region for next valid
@@ -165,14 +185,14 @@ fn main() {
     for mask in (0..program_len).rev() {
         let expected_out = &program[mask..]
             .iter()
-            .map(|n| n.to_string())
-            .collect::<Vec<String>>()
-            .join("");
+            .enumerate()
+            .map(|(pow, num)| num * 10_usize.pow(pow as u32))
+            .sum();
 
         for offset in 0..=500 {
-            let mut cpu = Cpu::new(part_2 * 8 + offset, 0, 0);
-            cpu.run_program(&program);
-            if &cpu.flush_no_sep() == expected_out {
+            let mut interpreter = Interpreter::new(part_2 * 8 + offset, 0, 0);
+            interpreter.run_program(&program);
+            if &interpreter.iflush() == expected_out {
                 part_2 = part_2 * 8 + offset;
                 break;
             }
