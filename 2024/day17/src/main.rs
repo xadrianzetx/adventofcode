@@ -162,7 +162,7 @@ fn main() {
     let part_1 = interpreter.flush();
     println!("Part 1: {part_1}");
 
-    // My Chronospatial Computer "assembly" decompiles to following pseudocode:
+    // My Chronospatial Computer intcode decompiles to following pseudocode:
     //
     //loop {
     // 	b = a % 8;      // b is set to 0..=7
@@ -173,7 +173,7 @@ fn main() {
     // 	a = a / 8;      // div a by 8 to go to next iter
     // 	print(b % 8);   // b truncated to range 0..=7 and printed
     // 	if a == 0 {
-    // 		break;
+    //    break;
     // 	}
     //}
     //
