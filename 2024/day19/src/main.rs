@@ -8,7 +8,7 @@ fn build_patterns(data: &str) -> HashSet<&str> {
     patterns
 }
 
-fn count_desings(
+fn count_designs(
     design: &str,
     patterns: &HashSet<&str>,
     cache: &mut HashMap<String, usize>,
@@ -26,7 +26,7 @@ fn count_desings(
         if design.starts_with(p) {
             let plen = p.len();
             if plen <= design.len() {
-                combinations += count_desings(&design[plen..], patterns, cache);
+                combinations += count_designs(&design[plen..], patterns, cache);
             }
         }
     }
@@ -45,7 +45,7 @@ fn main() {
         .lines()
         .map(|l| {
             let mut cache = HashMap::new();
-            count_desings(l, &patterns, &mut cache)
+            count_designs(l, &patterns, &mut cache)
         })
         .collect::<Vec<usize>>();
 
