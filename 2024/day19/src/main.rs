@@ -8,13 +8,13 @@ fn build_patterns(data: &str) -> HashSet<&str> {
     patterns
 }
 
-fn count_designs(
-    design: &str,
+fn count_designs<'a>(
+    design: &'a str,
     patterns: &HashSet<&str>,
-    cache: &mut HashMap<String, usize>,
+    cache: &mut HashMap<&'a str, usize>,
 ) -> usize {
-    if cache.contains_key(design) {
-        return *cache.get(design).unwrap();
+    if let Some(cached) = cache.get(design) {
+        return *cached;
     }
 
     if design.is_empty() {
@@ -31,7 +31,7 @@ fn count_designs(
         }
     }
 
-    cache.insert(design.to_string(), combinations);
+    cache.insert(design, combinations);
     combinations
 }
 
