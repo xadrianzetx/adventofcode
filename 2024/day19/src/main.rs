@@ -1,11 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 fn build_patterns(data: &str) -> HashSet<&str> {
-    let mut patterns = HashSet::new();
-    for p in data.split(", ") {
-        patterns.insert(p);
-    }
-    patterns
+    data.split(", ").collect::<HashSet<&str>>()
 }
 
 fn count_designs<'a>(
