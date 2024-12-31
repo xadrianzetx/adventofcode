@@ -1,216 +1,240 @@
+use std::cmp::min;
+
 #[derive(Debug, PartialEq)]
 enum BlockType {
     Free,
     Occupied,
 }
 
+// File id, file size.
+struct File(usize, usize);
+
 #[derive(Debug)]
 struct Block {
-    type_: BlockType,
     id: Option<usize>,
-    free: usize,
-    occupied: usize,
-    addr: usize,
+    block_type: BlockType,
+    free_space: usize,
+    occupied_space: usize,
+    starting_address: usize,
 }
 
 impl Block {
-    fn new_free(size: usize, addr: usize) -> Self {
-        Self {
-            type_: BlockType::Free,
-            id: None,
-            free: size,
-            occupied: 0,
-            addr,
+    fn new_parametrized(size: usize, starting_address: usize, id: Option<usize>) -> Self {
+        match id {
+            Some(val) => Self {
+                block_type: BlockType::Occupied,
+                id: Some(val),
+                free_space: 0,
+                occupied_space: size,
+                starting_address,
+            },
+            None => Self {
+                block_type: BlockType::Free,
+                id: None,
+                free_space: size,
+                occupied_space: 0,
+                starting_address,
+            },
         }
     }
 
-    fn new_occupied(id: usize, size: usize, addr: usize) -> Self {
-        Self {
-            type_: BlockType::Occupied,
-            id: Some(id),
-            free: 0,
-            occupied: size,
-            addr,
+    fn is_free(&self) -> bool {
+        self.block_type == BlockType::Free
+    }
+
+    fn free(&mut self, size: usize) -> File {
+        let freed = min(size, self.occupied_space);
+        self.occupied_space -= freed;
+        let file = File(self.id.unwrap(), freed);
+
+        if self.occupied_space == 0 {
+            self.id = None;
+            self.block_type = BlockType::Free;
         }
+
+        file
+    }
+
+    fn allocate(&mut self, file: File) -> Option<Block> {
+        self.id = Some(file.0);
+        self.block_type = BlockType::Occupied;
+        self.occupied_space += file.1;
+
+        if self.free_space - file.1 > 0 {
+            return Some(Block::new_parametrized(
+                self.free_space - self.occupied_space,
+                self.starting_address + self.occupied_space,
+                None,
+            ));
+        }
+
+        None
     }
 
     fn checksum(&self) -> usize {
-        if let BlockType::Free = self.type_ {
+        if let BlockType::Free = self.block_type {
             return 0;
         }
 
         let mut checksum = 0;
-        for i in self.addr..self.addr + self.occupied {
+        for i in self.starting_address..self.starting_address + self.occupied_space {
             checksum += i * self.id.unwrap();
         }
         checksum
     }
 }
 
-fn build_blocks(data: &str) -> Vec<Block> {
-    let mut blocks = Vec::new();
-    let mut file = true;
-    let mut tot_size = 0;
-    let mut next_id = 0;
-
-    for chr in data.chars() {
-        let size = chr.to_digit(10).unwrap() as usize;
-        if file {
-            let block = Block::new_occupied(next_id, size, tot_size);
-            blocks.push(block);
-            file = false;
-            next_id += 1;
-        } else {
-            let block = Block::new_free(size, tot_size);
-            blocks.push(block);
-            file = true;
-        }
-        tot_size += size;
-    }
-
-    blocks
+#[derive(Debug)]
+struct Disk {
+    blocks: Vec<Block>,
+    free_ptr: usize,
+    file_ptr: usize,
 }
 
-fn get_free_block(blocks: &[Block]) -> usize {
-    for (ptr, block) in blocks.iter().enumerate() {
-        if let BlockType::Free = block.type_ {
-            return ptr;
-        }
-    }
-    unreachable!();
-}
+impl From<&str> for Disk {
+    fn from(value: &str) -> Self {
+        let mut blocks = Vec::new();
+        let mut addr = 0;
 
-fn get_file_block(blocks: &[Block]) -> usize {
-    for (ptr, block) in blocks.iter().enumerate().rev() {
-        if let BlockType::Occupied = block.type_ {
-            return ptr;
-        }
-    }
-    unreachable!();
-}
+        let mut block_idx: usize = 0;
+        let mut free_ptr = 0;
+        let mut file_ptr = 0;
 
-fn fragment(blocks: &mut Vec<Block>) {
-    loop {
-        let free_ptr = get_free_block(blocks);
-        let file_ptr = get_file_block(blocks);
-        if blocks[file_ptr].addr < blocks[free_ptr].addr {
-            break;
-        }
+        for (id, chunk) in value.chars().collect::<Vec<char>>().chunks(2).enumerate() {
+            let file_size = chunk[0].to_digit(10).unwrap() as usize;
+            blocks.push(Block::new_parametrized(file_size, addr, Some(id)));
+            addr += file_size;
+            file_ptr = block_idx;
+            block_idx += 1;
 
-        blocks[free_ptr].type_ = BlockType::Occupied;
-        blocks[free_ptr].id = blocks[file_ptr].id;
+            if chunk.len() > 1 {
+                let free_size = chunk[1].to_digit(10).unwrap() as usize;
+                if free_size > 0 {
+                    blocks.push(Block::new_parametrized(free_size, addr, None));
+                    addr += free_size;
 
-        if blocks[file_ptr].occupied > blocks[free_ptr].free {
-            let transfer =
-                blocks[file_ptr].occupied - (blocks[file_ptr].occupied - blocks[free_ptr].free);
-            blocks[file_ptr].occupied -= transfer;
-            blocks[file_ptr].free += transfer;
-            blocks[free_ptr].free -= transfer;
-            blocks[free_ptr].occupied += transfer;
-        } else {
-            let transfer = blocks[file_ptr].occupied;
-            blocks[file_ptr].free += transfer;
-            blocks[file_ptr].occupied = 0;
-            blocks[free_ptr].free -= transfer;
-            blocks[free_ptr].occupied += transfer;
-
-            if blocks[file_ptr].occupied == 0 {
-                blocks[file_ptr].type_ = BlockType::Free;
-                blocks[file_ptr].id = None;
+                    if free_ptr == 0 {
+                        free_ptr = block_idx;
+                    }
+                    block_idx += 1;
+                }
             }
+        }
 
-            if blocks[free_ptr].free > 0 {
-                let newblock = Block::new_free(
-                    blocks[free_ptr].free,
-                    blocks[free_ptr].addr + blocks[free_ptr].occupied,
-                );
-                blocks[free_ptr].free = 0;
-                blocks.insert(free_ptr + 1, newblock);
-            }
+        Self {
+            blocks,
+            file_ptr,
+            free_ptr,
         }
     }
 }
 
-fn get_block_by_id(blocks: &[Block], id: usize) -> usize {
-    for (ptr, block) in blocks.iter().enumerate() {
-        if let BlockType::Occupied = block.type_ {
-            if block.id.unwrap() == id {
-                return ptr;
+impl Disk {
+    fn fragmented_compact(&mut self) {
+        loop {
+            if self.file_ptr < self.free_ptr {
+                break;
             }
+
+            let file = self.get_file();
+            if let Some(leftover) = self.write_file(file) {
+                self.blocks.insert(self.free_ptr + 1, leftover);
+            }
+
+            self.next_file();
+            self.next_free();
         }
     }
-    unreachable!()
-}
 
-fn get_free_block_with_size(blocks: &[Block], size: usize) -> Option<usize> {
-    for (ptr, block) in blocks.iter().enumerate() {
-        if let BlockType::Free = block.type_ {
-            if block.free >= size {
-                return Some(ptr);
+    fn defragmented_compact(&mut self) {
+        let mut file_id = self.blocks[self.file_ptr].id.unwrap();
+        loop {
+            if file_id == 0 {
+                break;
             }
+
+            if self.find_free_space_for_current_file().is_some() {
+                let file = self.get_file();
+                if let Some(leftover) = self.write_file(file) {
+                    self.blocks.insert(self.free_ptr + 1, leftover);
+                }
+            }
+
+            file_id -= 1;
+            self.find_file(file_id);
         }
     }
-    None
-}
 
-fn defragment(blocks: &mut Vec<Block>) {
-    let mut curr_file_id = blocks
-        .iter()
-        .filter(|b| b.type_ == BlockType::Occupied)
-        .map(|b| b.id.unwrap())
-        .max()
-        .unwrap();
+    fn find_free_space_for_current_file(&mut self) -> Option<()> {
+        self.free_ptr = 0;
+        let target = &self.blocks[self.file_ptr];
 
-    loop {
-        if curr_file_id == 0 {
-            break;
-        }
-
-        let file_ptr = get_block_by_id(blocks, curr_file_id);
-        if let Some(free_ptr) = get_free_block_with_size(blocks, blocks[file_ptr].occupied) {
-            if free_ptr > file_ptr {
-                curr_file_id -= 1;
-                continue;
+        loop {
+            let block = &self.blocks[self.free_ptr];
+            if block.is_free() && block.free_space >= target.occupied_space {
+                return Some(());
             }
 
-            blocks[free_ptr].type_ = BlockType::Occupied;
-            blocks[free_ptr].id = blocks[file_ptr].id;
-
-            let transfer = blocks[file_ptr].occupied;
-            blocks[file_ptr].free += transfer;
-            blocks[file_ptr].occupied = 0;
-            blocks[free_ptr].free -= transfer;
-            blocks[free_ptr].occupied += transfer;
-
-            if blocks[file_ptr].occupied == 0 {
-                blocks[file_ptr].type_ = BlockType::Free;
-                blocks[file_ptr].id = None;
-            }
-
-            if blocks[free_ptr].free > 0 {
-                let newblock = Block::new_free(
-                    blocks[free_ptr].free,
-                    blocks[free_ptr].addr + blocks[free_ptr].occupied,
-                );
-                blocks[free_ptr].free = 0;
-                blocks.insert(free_ptr + 1, newblock);
+            self.free_ptr += 1;
+            if self.free_ptr > self.file_ptr {
+                break;
             }
         }
+        None
+    }
 
-        curr_file_id -= 1;
+    fn next_free(&mut self) {
+        loop {
+            if self.blocks[self.free_ptr].is_free() {
+                break;
+            }
+            self.free_ptr += 1;
+        }
+    }
+
+    fn next_file(&mut self) {
+        loop {
+            if !self.blocks[self.file_ptr].is_free() {
+                break;
+            }
+            self.file_ptr -= 1;
+        }
+    }
+
+    fn find_file(&mut self, file_id: usize) {
+        loop {
+            let maybe_file = &self.blocks[self.file_ptr];
+            if !maybe_file.is_free() && maybe_file.id.unwrap() == file_id {
+                break;
+            }
+            self.file_ptr -= 1;
+        }
+    }
+
+    fn get_file(&mut self) -> File {
+        let size = self.blocks[self.free_ptr].free_space;
+        let file_block = self.blocks.get_mut(self.file_ptr).unwrap();
+        file_block.free(size)
+    }
+
+    fn write_file(&mut self, file: File) -> Option<Block> {
+        let free_block = self.blocks.get_mut(self.free_ptr).unwrap();
+        free_block.allocate(file)
+    }
+
+    fn get_checksum(&self) -> usize {
+        self.blocks.iter().map(|b| b.checksum()).sum::<usize>()
     }
 }
 
 fn main() {
     let data = include_str!("../input");
 
-    let mut blocks_a = build_blocks(data);
-    fragment(&mut blocks_a);
-    let part_1 = blocks_a.iter().map(|b| b.checksum()).sum::<usize>();
-    println!("Part 1: {part_1}");
+    let mut fragmented_disk = Disk::from(data);
+    fragmented_disk.fragmented_compact();
+    println!("Part 1: {}", fragmented_disk.get_checksum());
 
-    let mut blocks_b = build_blocks(data);
-    defragment(&mut blocks_b);
-    let part_2 = blocks_b.iter().map(|b| b.checksum()).sum::<usize>();
-    println!("Part 2: {part_2}");
+    let mut defragmented_disk = Disk::from(data);
+    defragmented_disk.defragmented_compact();
+    println!("Part 2: {}", defragmented_disk.get_checksum());
 }
