@@ -12,7 +12,7 @@ pub fn readBank(bank: []const u8, allocator: std.mem.Allocator) !std.ArrayList(u
     return bankBuff;
 }
 
-pub fn findMaxTotalJoltage(bank: *const std.ArrayList(usize), batteriesNeeded: usize) !usize {
+pub fn findMaxTotalJoltage(bank: *const std.ArrayList(usize), batteriesNeeded: usize) usize {
     var currentBatteryIndex: usize = 0;
     var totalJoltage: usize = 0;
 
@@ -58,8 +58,8 @@ pub fn main() !void {
     while (banks.next()) |rawBank| {
         const bank = try readBank(rawBank, allocator);
 
-        totalSmallJoltage += try findMaxTotalJoltage(&bank, 2);
-        totalBigJoltage += try findMaxTotalJoltage(&bank, 12);
+        totalSmallJoltage += findMaxTotalJoltage(&bank, 2);
+        totalBigJoltage += findMaxTotalJoltage(&bank, 12);
     }
 
     std.debug.print("Part 1: {d}\n", .{totalSmallJoltage});
