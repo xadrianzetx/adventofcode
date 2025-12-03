@@ -24,3 +24,6 @@ Cargo.lock
 .zig-cache/
 zig-out/
 *.o
+
+.vscode/
+
