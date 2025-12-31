@@ -2,30 +2,30 @@ const std = @import("std");
 const math = std.math;
 
 pub fn readBank(bank: []const u8, allocator: std.mem.Allocator) !std.ArrayList(usize) {
-    var bankBuff = std.ArrayList(usize).empty;
+    var bank_buff = std.ArrayList(usize).empty;
     var window = std.mem.window(u8, bank, 1, 1);
 
     while (window.next()) |battery| {
-        try bankBuff.append(allocator, try std.fmt.parseInt(usize, battery, 10));
+        try bank_buff.append(allocator, try std.fmt.parseInt(usize, battery, 10));
     }
 
-    return bankBuff;
+    return bank_buff;
 }
 
-pub fn findMaxTotalJoltage(bank: *const std.ArrayList(usize), batteriesNeeded: usize) usize {
-    var currentBatteryIndex: usize = 0;
-    var totalJoltage: usize = 0;
+pub fn findMaxTotalJoltage(bank: *const std.ArrayList(usize), batteries_needed: usize) usize {
+    var current_battery_index: usize = 0;
+    var total_joltage: usize = 0;
 
-    for (0..batteriesNeeded) |batteryIndex| {
-        const lastVisibleBatteryIndex = bank.items.len - (batteriesNeeded - batteryIndex - 1);
-        const bankSlice = bank.items[currentBatteryIndex..lastVisibleBatteryIndex];
+    for (0..batteries_needed) |battery_index| {
+        const last_visible_battery_index = bank.items.len - (batteries_needed - battery_index - 1);
+        const bank_slice = bank.items[current_battery_index..last_visible_battery_index];
 
-        const localMaximumJoltage = naiveMaxInSlice(bankSlice);
-        currentBatteryIndex += localMaximumJoltage.@"1" + 1;
-        totalJoltage += localMaximumJoltage.@"0" * math.pow(usize, 10, (batteriesNeeded - batteryIndex - 1));
+        const local_maximum_joltage = naiveMaxInSlice(bank_slice);
+        current_battery_index += local_maximum_joltage.@"1" + 1;
+        total_joltage += local_maximum_joltage.@"0" * math.pow(usize, 10, (batteries_needed - battery_index - 1));
     }
 
-    return totalJoltage;
+    return total_joltage;
 }
 
 pub fn naiveMaxInSlice(slice: []const usize) struct { usize, usize } {
@@ -52,16 +52,16 @@ pub fn main() !void {
 
     var banks = std.mem.splitSequence(u8, data, "\n");
 
-    var totalSmallJoltage: usize = 0;
-    var totalBigJoltage: usize = 0;
+    var total_small_joltage: usize = 0;
+    var total_big_joltage: usize = 0;
 
-    while (banks.next()) |rawBank| {
-        const bank = try readBank(rawBank, allocator);
+    while (banks.next()) |raw_bank| {
+        const bank = try readBank(raw_bank, allocator);
 
-        totalSmallJoltage += findMaxTotalJoltage(&bank, 2);
-        totalBigJoltage += findMaxTotalJoltage(&bank, 12);
+        total_small_joltage += findMaxTotalJoltage(&bank, 2);
+        total_big_joltage += findMaxTotalJoltage(&bank, 12);
     }
 
-    std.debug.print("Part 1: {d}\n", .{totalSmallJoltage});
-    std.debug.print("Part 2: {d}\n", .{totalBigJoltage});
+    std.debug.print("Part 1: {d}\n", .{total_small_joltage});
+    std.debug.print("Part 2: {d}\n", .{total_big_joltage});
 }

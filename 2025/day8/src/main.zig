@@ -81,13 +81,13 @@ fn createOpenCircuit(data: []const u8, allocator: std.mem.Allocator) !std.ArrayL
 }
 
 fn OrderedConnections() type {
-    const Ordering = struct {
-        fn lessThanFn(context: void, a: JunctionBox.Distance, b: JunctionBox.Distance) math.Order {
+    const ordering = struct {
+        fn lessThan(context: void, a: JunctionBox.Distance, b: JunctionBox.Distance) math.Order {
             _ = context;
             return math.order(a.distance, b.distance);
         }
     };
-    return std.PriorityQueue(JunctionBox.Distance, void, Ordering.lessThanFn);
+    return std.PriorityQueue(JunctionBox.Distance, void, ordering.lessThan);
 }
 
 fn enumeratePossibleConnections(circuit: *std.ArrayList(JunctionBox), allocator: std.mem.Allocator) !OrderedConnections() {
@@ -106,14 +106,14 @@ fn enumeratePossibleConnections(circuit: *std.ArrayList(JunctionBox), allocator:
 }
 
 fn getNBiggestCircuitsCombinedSize(circuit: *std.ArrayList(JunctionBox), comptime n: comptime_int, allocator: std.mem.Allocator) !usize {
-    const Ordering = struct {
-        fn greaterThanFn(context: void, a: usize, b: usize) math.Order {
+    const ordering = struct {
+        fn greaterThan(context: void, a: usize, b: usize) math.Order {
             _ = context;
             return math.order(a, b).invert();
         }
     };
 
-    var q = std.PriorityQueue(usize, void, Ordering.greaterThanFn).init(allocator, {});
+    var q = std.PriorityQueue(usize, void, ordering.greaterThan).init(allocator, {});
     defer q.deinit();
 
     for (circuit.items) |box| {

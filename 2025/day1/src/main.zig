@@ -13,47 +13,51 @@ const Rotation = union(RotationTag) {
         };
         const distance = try std.fmt.parseInt(i32, line[1..], 10);
 
-        switch (direction) {
-            .L => return .{ .L = distance },
-            .R => return .{ .R = distance },
-        }
+        return switch (direction) {
+            .L => .{ .L = distance },
+            .R => .{ .R = distance },
+        };
     }
 };
 
-fn Dial(comptime initialPosition: i32) type {
+fn Dial(comptime initial_position: i32) type {
     return struct {
         const Self = @This();
 
         position: i32,
-        leftAtOriginCount: usize,
-        passedOriginCount: usize,
+        left_at_origin_count: usize,
+        passed_origin_count: usize,
 
         pub fn init() Self {
-            return .{ .position = initialPosition, .leftAtOriginCount = 0, .passedOriginCount = 0 };
+            return .{
+                .position = initial_position,
+                .left_at_origin_count = 0,
+                .passed_origin_count = 0,
+            };
         }
 
         pub fn rotate(self: *Self, rotation: Rotation) void {
             switch (rotation) {
                 .L => |steps| {
                     if (self.position == 0) {
-                        self.passedOriginCount -= 1;
+                        self.passed_origin_count -= 1;
                     }
 
-                    self.passedOriginCount += @intCast(@abs(@divFloor(self.position - steps, 100)));
+                    self.passed_origin_count += @intCast(@abs(@divFloor(self.position - steps, 100)));
                     self.position = @mod(self.position - steps, 100);
 
                     if (self.position == 0) {
-                        self.passedOriginCount += 1;
+                        self.passed_origin_count += 1;
                     }
                 },
                 .R => |steps| {
-                    self.passedOriginCount += @intCast(@divFloor(self.position + steps, 100));
+                    self.passed_origin_count += @intCast(@divFloor(self.position + steps, 100));
                     self.position = @mod(self.position + steps, 100);
                 },
             }
 
             if (self.position == 0) {
-                self.leftAtOriginCount += 1;
+                self.left_at_origin_count += 1;
             }
         }
     };
@@ -70,6 +74,6 @@ pub fn main() !void {
         dial.rotate(rotation);
     }
 
-    std.debug.print("Part 1: {d}\n", .{dial.leftAtOriginCount});
-    std.debug.print("Part 2: {d}\n", .{dial.passedOriginCount});
+    std.debug.print("Part 1: {d}\n", .{dial.left_at_origin_count});
+    std.debug.print("Part 2: {d}\n", .{dial.passed_origin_count});
 }
